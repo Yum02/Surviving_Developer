@@ -513,9 +513,9 @@ function visaP(s){ return clamp(.35+s.luck*2,.1,.8); }
 const STAGE={kid:'유년기',teen:'청소년기',young:'청년기',mid:'중년기',senior:'장년기',old:'노년기'};
 function stageOf(s){ const a=s.age; return a<13?'kid':a<19?'teen':a<35?'young':a<50?'mid':a<60?'senior':'old'; }
 function wealth(s){ return s.money+s.port.etf+s.port.stock+s.port.coin+s.port.div; }
-const ASSET={etf:{l:'지수 ETF',m:.06,sd:.15},stock:{l:'개별 기술주',m:.04,sd:.38},coin:{l:'코인',m:-.04,sd:.7},div:{l:'배당주',m:.05,sd:.08}};
+const ASSET={etf:{l:'지수 ETF',m:.05,sd:.15},stock:{l:'개별 기술주',m:.035,sd:.38},coin:{l:'코인',m:-.05,sd:.7},div:{l:'배당주',m:.035,sd:.07}};
 const INV=[
-  {id:'dep',l:'예금에 둔다',h:'현금에 해마다 이자 3% · 가진 주식은 그대로 둔다'},
+  {id:'dep',l:'예금에 둔다',h:'현금에 해마다 이자 2% · 가진 주식은 그대로 둔다'},
   {id:'etf',l:'지수 ETF를 산다',h:'현금의 절반을 넣는다 · 느리지만 꾸준한 편'},
   {id:'stock',l:'개별 기술주를 산다',h:'현금의 절반을 넣는다 · 크게 오르거나 크게 잃는다'},
   {id:'coin',l:'코인을 산다',h:'현금의 절반을 넣는다 · 롤러코스터'},
@@ -578,17 +578,19 @@ function investResult(s){
   let bought=0;
   if(ASSET[pol]&&s.money>200){ bought=Math.round(s.money*.5); s.money-=bought; P[pol]+=bought; }
   const parts=[];let before=0,after=0;
+  const crash=(y+s.phase)%9===0;
   for(const k in ASSET){
     if(P[k]<1)continue;
     const a=ASSET[k];let r=a.m+mkt(s,y-1)*1.2+R.norm()*a.sd+(s.flags.moneySense?.015:0)+(s.finLv||0)*.007;
     if(k==='stock'){ const x=R(); if(x<.03)r=1.5+R(); else if(x<.07)r=-.7; }
+    if(crash&&k!=='div')r-=k==='coin'?.45:.3;
     r=Math.max(r,-.92);
     before+=P[k];P[k]=Math.round(P[k]*(1+r));after+=P[k];
     parts.push(`${a.l} ${r>=0?'+':'−'}${Math.abs(Math.round(r*100))}%`);
   }
-  if(pol==='dep'&&s.money>300){ const i=Math.round(s.money*.03); s.money+=i; if(!parts.length)return tag(`예금 이자로 ${won(i)}이 붙었다.`,'n'); }
+  if(pol==='dep'&&s.money>300){ const i=Math.round(s.money*.02); s.money+=i; if(!parts.length)return tag(`예금 이자로 ${won(i)}이 붙었다.`,'n'); }
   if(!parts.length)return null;
-  return tag(`투자 결산. ${parts.join(', ')}. ${bought?won(bought)+'을 새로 넣었고, ':''}평가액은 ${won(after)}이다.`,after>=before?'good':'bad');
+  return tag(`${crash?'폭락장이 왔다. ':''}투자 결산. ${parts.join(', ')}. ${bought?won(bought)+'을 새로 넣었고, ':''}평가액은 ${won(after)}이다.`,after>=before?'good':'bad');
 }
 function* planResult(s){
   if(s.age<7)return;
@@ -656,11 +658,11 @@ function* later(s){
   }
   while(true){
     yield* to(s,s.age+1);
-    s.money+=Math.round(1300+Math.min(s.devYears,30)*45-2300+s.passive+(s.flags.retirePlan?300:0));s.passive=Math.round(s.passive*.85);
+    s.money+=Math.round(1300+Math.min(s.devYears,30)*45-2600-Math.max(0,wealth(s))*.025+s.passive+(s.flags.retirePlan?300:0));s.passive=Math.round(s.passive*.85);
     apply(s,{health:-1.6-(s.age-60)*.07,mental:.5,skill:-1,charm:-.5});
     if(R.chance(.5)){ const r=R.pick(OLD)(s); yield beat(s,r[0],r[1],r[2]); }
     if(R.chance(.6))yield* draw(s,'o',OLD2);
-    apply(s,{mental:-2,network:-1.5});
+    apply(s,{mental:-5.5,network:-3.5});
     const p=.006*Math.exp(.09*(s.age-60))*(s.st.health<25?2.2:s.st.health>60?.7:1);
     if(s.age>=100||R.chance(p)){
       s.deathAge=s.age;
@@ -1114,7 +1116,7 @@ function lifeResult(s){
   if(s.age<=60&&!s.over){
     if(w==='balance'){ d.mental=3;d.health=3; if(working)d.rep=-1; s.wm={promo:.7,raise:-.01,hire:-.03,layoff:.01};
       t.push(working?pk(s,['정시에 퇴근하는 한 해를 보냈다.','저녁 약속을 한 번도 미루지 않았다.']):'쉬엄쉬엄 준비하며 숨을 골랐다.'); }
-    else if(w==='grind'){ d.skill=2;d.health=-2.5;d.mental=-3;d.charm=-1; if(working)d.rep=2.5; lv(s,-3); s.wm={promo:1.5,raise:.02,hire:.06,layoff:-.03};
+    else if(w==='grind'){ d.skill=2;d.health=-1;d.mental=-1.5;d.charm=-1; if(working)d.rep=2.5; lv(s,-3); s.wm={promo:1.5,raise:.02,hire:.06,layoff:-.03};
       t.push(working?pk(s,['사무실 불을 마지막에 끄는 사람으로 한 해를 보냈다.','주말에도 회사 메신저를 켜 두었다.']):'눈을 뜨면 지원서, 눈 감기 전에는 코딩 테스트였다.'); }
   }
   if(sp==='frugal'){ s.sm=1.25; d.mental=(d.mental||0)-2; if(!working)d.money=300; t.push(pk(s,['도시락을 싸고 구독 서비스를 정리했다.','가계부의 지출 그래프가 눈에 띄게 내려갔다.'])); }
@@ -1610,14 +1612,14 @@ function* workYear(s){
   const R=s.R,y=s.birthYear+s.age;
   let j=s.job,c=CO[j.tier];
   j.yrs++;s.devYears++;s.lvYrs++;if(j.us)s.usYrs++;
-  s.money+=Math.round(j.sal*(j.us?.24:.32)*s.saveMul*s.sm-(s.flags.kid?1100:0)-(s.flags.own?600:0)-(s.fam===0&&!s.flags.parentGone?200:0)+s.passive);
+  s.money+=Math.round(j.sal*(j.us?.17:.22)*s.saveMul*s.sm-(s.flags.kid?1100:0)-(s.flags.own?600:0)-(s.fam===0&&!s.flags.parentGone?200:0)+s.passive);
   if(s.fam===0&&!s.flags.support){ s.flags.support=1; yield beat(s,'첫 월급부터 부모님께 생활비를 보내기 시작했다.','n',{mental:-1}); }s.passive=Math.round(s.passive*.85);
   apply(s,{skill:c.learn-(s.track==='mgr'?1.6:0)-(s.age>45?.6:0),health:1-c.crunch*3-(s.age>40?.8:0),mental:-1.2-c.crunch*4+(s.flags.married?.6:0)});
   apply(s,{rep:1+clamp((s.st.skill-c.sk)/20,-1,2),charm:s.age>50?-.5:0});
   if(j.tier==='founder'){ yield* founderYear(s); if(s.over||!s.job)return; }
   // 해고·권고사직
   let pL=(1-c.stab)*.5+(mkt(s,y)<-.03?.035:0)+(s.flags.omen?.22:0)-s.st.skill/1200;
-  if(!j.us&&s.age>=42&&s.track!=='mgr'&&j.tier!=='free'&&j.tier!=='founder')pL+=.09+(s.age-42)*.009-s.st.network/900;
+  if(!j.us&&s.age>=42&&s.track!=='mgr'&&j.tier!=='free'&&j.tier!=='founder')pL+=.12+(s.age-42)*.013-s.st.network/900;
   if(!j.us&&s.age>=45&&s.track==='mgr'&&j.tier!=='founder')pL+=.035;
   pL+=s.wm.layoff-s.st.rep/900;
   if(j.tier==='free')pL=s.age>=50?.1:.03;
@@ -1651,8 +1653,8 @@ function* workYear(s){
   // 승진
   if(j.tier!=='founder'&&j.tier!=='free'&&s.lv<5){
     const need=[0,3,4,5,6][s.lv],thr=[0,42,58,70,84][s.lv];
-    const ok=s.track==='mgr'&&s.lv>=3?s.st.network>=[0,0,0,52,78][s.lv]:s.st.skill>=thr;
-    if(s.lvYrs>=need&&ok&&R.chance((s.lv>=4?.2:.45)*s.wm.promo*(.6+s.st.rep/90))){
+    const ok=s.track==='mgr'&&s.lv>=3?(s.st.network>=[0,0,0,52,78][s.lv]&&s.st.rep>=[0,0,0,40,72][s.lv]):s.st.skill>=thr;
+    if(s.lvYrs>=need&&ok&&R.chance((s.lv>=4?.11:.45)*s.wm.promo*(.6+s.st.rep/90))){
       if(s.lv===3&&!s.flags.trackAsked){
         s.flags.trackAsked=1;
         const i=yield ch('시니어 다음 단계가 보인다. 회사가 두 갈래 길을 제시했다.',[
@@ -1669,6 +1671,10 @@ function* workYear(s){
   s.maxSal=Math.max(s.maxSal,j.sal);
 }
 function* checks(s){
+  if(s.job&&s.st.health>8&&s.st.health<22&&(!s.cd.sick||s.age-s.cd.sick>=9)){
+    s.cd.sick=s.age;
+    yield beat(s,'몸이 버티지 못해 한 달 병가를 냈다. 누워서 천장을 보며 그동안 미뤄 둔 잠을 잤다.','bad',{health:10,mental:2,rep:-4});
+  }
   if(s.st.health<=8){ yield beat(s,'회의 중에 쓰러졌다. 눈을 뜬 곳은 응급실이었다.','bad'); yield end(s,'health'); return; }
   if(s.st.mental<=8){ yield beat(s,'더는 할 수 없다는 걸 몸이 먼저 알았다.','bad'); yield end(s,'burnout'); return; }
   if(wealth(s)>=400000&&s.age>=36&&!s.flags.fire){
@@ -1710,7 +1716,7 @@ if(typeof module!=='undefined')module.exports={newLife,life,autoRun,ENDINGS,CO,w
 </script>
 <script>
 'use strict';
-const RAR={"health":22.3,"r_ic":18.9,"r_cto":17.2,"burnout":11,"fire":10.3,"never":5.6,"r_us":4.8,"exit":3.4,"civil":3,"r_none":1.1,"r_mgr":1,"chicken":0.6,"teacher":0.5,"r_free":0.4};
+const RAR={"r_ic":25.4,"r_cto":19.6,"r_mgr":8.7,"r_us":8.3,"burnout":8,"health":6.8,"never":5.7,"fire":5,"r_none":3.6,"exit":3.3,"civil":3,"chicken":1,"teacher":0.9,"r_free":0.7};
 const $=id=>document.getElementById(id);
 const STAT=[['skill','실력'],['health','체력'],['mental','멘탈'],['network','인맥'],['english','영어']];
 const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산',study:'공부',rep:'평판',charm:'매력'};
