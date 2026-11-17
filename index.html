@@ -148,6 +148,61 @@ h1 em{font-style:normal;color:var(--stamp)}
 .career h3{font-family:var(--display);font-weight:900;font-size:20px;line-height:1.3}
 .career p{font-size:14.5px}
 
+/* ===== 넓은 화면 ===== */
+.wideOnly{display:none}
+.note{font-size:13.5px;color:var(--muted)}
+.none{display:none !important}
+@media (min-width:760px){
+  #app{max-width:1280px}
+  #start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;row-gap:22px;align-content:center;padding:56px 48px}
+  #start>*{grid-column:1}
+  #start .rules{grid-column:2;grid-row:1/span 6;align-self:center}
+  #start h1{font-size:64px}
+  #start .parade{flex-wrap:nowrap;gap:8px}
+  #start .parade canvas{width:52px;height:58.5px}
+  #start .primary{max-width:320px}
+  #birth{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 32px;align-content:start;padding:40px 48px}
+  #birth>.doc:first-child{grid-row:1/span 3}
+  #app.play{display:grid;grid-template-columns:280px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;grid-template-areas:"hud log" "hud sheet" "ctl plan"}
+  #app.play #stage{display:contents}
+  #hud{grid-area:hud;border-bottom:0;border-right:1px solid var(--line);padding:24px 20px;gap:14px;align-self:stretch;overflow-y:auto}
+  #hud .top{flex-direction:column;align-items:flex-start}
+  #hud .ava{width:96px;height:108px}
+  #hud .meta{width:100%}
+  #hud .who{flex-direction:column;align-items:flex-start;gap:0}
+  #hud .who .nm{font-size:24px}
+  #hud .job{flex-direction:column}
+  #hud .stats{grid-template-columns:1fr 1fr;gap:12px 14px}
+  #hud .stat span{font-size:13px}
+  #hud .bar{height:5px}
+  #guide{font-size:13px}
+  #log{grid-area:log;padding:16px 32px 32px}
+  #log>*{max-width:44em;width:100%}
+  #sheet{grid-area:sheet;max-height:46vh}
+  #planBar{grid-area:plan;padding:12px 32px}
+  #ctl{grid-area:ctl;flex-direction:column;border-top:1px solid var(--line);border-right:1px solid var(--line);padding:14px 20px 20px}
+  .result{max-width:44em}
+}
+@media (min-width:1100px){
+  #start .parade{gap:12px}
+  #start .parade canvas{width:72px;height:81px}
+  #app.play{grid-template-columns:290px minmax(0,1fr) 360px;grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"hud log sheet" "ctl log sheet"}
+  #app.play #sheet,#app.play #sheet.hidden{display:flex !important;grid-area:sheet;max-height:none;border-top:0;border-left:1px solid var(--line);padding:24px 20px;gap:10px}
+  #app.play #planBar{display:none !important}
+  #app.play #ctl.hidden{display:flex !important}
+  #shTabs{display:none !important}
+  .wideOnly{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-top:6px}
+  #app.play #shA,#app.play #shI{display:grid !important}
+  #app.play #shL{display:flex !important}
+  #app.play .opts,#app.play .opts.three{grid-template-columns:1fr}
+  #app.play #shL .opts.three{grid-template-columns:repeat(3,1fr)}
+  #app.play #shL .opt small{display:none}
+  #sheet.need{box-shadow:inset 3px 0 0 var(--stamp)}
+  #app.play:not(.asking) #shOk{display:none}
+  #app.play.ended{grid-template-columns:290px minmax(0,1fr);grid-template-areas:"hud log" "hud log"}
+  #app.play.ended #sheet,#app.play.ended #ctl{display:none !important}
+}
+
 /* 결과 */
 .result{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:20px 18px;display:flex;flex-direction:column;gap:16px;margin-top:14px}
 .result .eyebrow{color:var(--stamp)}
@@ -208,8 +263,11 @@ h1 em{font-style:normal;color:var(--stamp)}
   <div id="sheet" class="hidden" role="group" aria-labelledby="shT">
     <div class="shHead"><b id="shT"></b><span class="seg" id="shTabs"><button id="tabA" aria-pressed="true">시간</button><button id="tabL" aria-pressed="false">생활</button><button id="tabI" aria-pressed="false">투자</button></span></div>
     <p class="fine" id="shM">지금 고르면 결과는 내년에 나옵니다.</p>
+    <p class="note hidden" id="shNote"></p>
+    <h4 class="wideOnly">시간을 어디에 쓸까</h4>
     <div id="shA" class="opts" role="radiogroup"></div>
     <div id="shL" class="hidden"><h4 id="shWh">일하는 방식</h4><div id="shW" class="opts three" role="radiogroup"></div><h4>씀씀이</h4><div id="shS" class="opts three" role="radiogroup"></div></div>
+    <h4 class="wideOnly" id="shIh">돈을 어떻게 굴릴까</h4>
     <div id="shI" class="opts hidden" role="radiogroup"></div>
     <div class="shFoot"><label class="chk" for="askEvery"><input type="checkbox" id="askEvery"> 해마다 묻기</label><button class="primary" id="shOk">이 계획으로 간다</button></div>
   </div>
@@ -1727,7 +1785,9 @@ $('parade').innerHTML=DEMO.map(()=>'<canvas class="px" width="16" height="18"></
 paint();
 if(!matchMedia('(prefers-reduced-motion: reduce)').matches)setInterval(()=>{ frame++;paint(); },520);
 
-function show(ids){ $('sheet').classList.add('hidden');sheetOpen=false; ['start','birth','hud','stage'].forEach(i=>$(i).classList.toggle('hidden',!ids.includes(i))); }
+const WIDE=matchMedia('(min-width:1100px)');
+let panelKey='';
+function show(ids){ $('sheet').classList.add('hidden');sheetOpen=false;$('app').classList.toggle('play',ids.includes('hud'));$('app').classList.remove('ended','asking');panelKey=''; ['start','birth','hud','stage'].forEach(i=>$(i).classList.toggle('hidden',!ids.includes(i))); }
 
 function begin(){
   const seed=(Math.random()*4294967296)>>>0;
@@ -1758,6 +1818,7 @@ function hud(){
   $('jobTxt').textContent=j;
   $('monTxt').textContent=(S.job?`연봉 ${won(S.job.sal)} · `:'')+`자산 ${won(wealth(S))}`;
   sprite($('ava'),look(S),frame);
+  syncPanel();
   $('stats').innerHTML=statList().map(([k,l,x])=>{ const v=Math.round(x); const low=(k==='health'||k==='mental'||k==='love')&&v<30; return `<div class="stat"><span>${l}<i>${v}</i></span><div class="bar${low?' low':''}"><u style="width:${v}%"></u></div></div>`; }).join('');
   const g=$('guide');
   if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'){
@@ -1813,6 +1874,10 @@ function drawSheet(){
   const o=planOptions(S);
   const row=(x,sel)=>`<button class="opt" role="radio" aria-checked="${x.id===sel}" data-id="${x.id}"><span>${esc(x.l)}</span>${x.h?`<small>${esc(x.h)}</small>`:''}</button>`;
   if(!o.invs)tab='a';
+  const young=S.age<7;
+  $('shNote').classList.toggle('hidden',!young);$('shNote').textContent='일곱 살부터 해마다 계획을 세울 수 있습니다.';
+  $('shA').classList.toggle('none',young);$('shL').classList.toggle('none',!o.spend);$('shI').classList.toggle('none',!o.invs);$('shIh').classList.toggle('none',!o.invs);
+  document.querySelectorAll('#sheet h4.wideOnly')[0].classList.toggle('none',young);
   $('tabL').setAttribute('aria-pressed',tab==='l');$('shL').classList.toggle('hidden',tab!=='l');
   if(o.spend){ $('shWh').classList.toggle('hidden',!o.work);$('shW').classList.toggle('hidden',!o.work); if(o.work){ $('shWh').textContent=S.job?'일하는 방식':'취업 준비';$('shW').innerHTML=o.work.map(x=>row(x,selW)).join(''); } $('shS').innerHTML=o.spend.map(x=>row(x,selS)).join(''); }
   $('shT').textContent=`${S.age}세 · ${o.name} 계획`;
@@ -1822,18 +1887,29 @@ function drawSheet(){
   $('shA').innerHTML=o.acts.map(x=>row(x,selA)).join('');
   if(o.invs)$('shI').innerHTML=o.invs.map(x=>row(x,selI)).join('');
   $('shM').textContent=tab==='a'&&studyVisible(S)&&S.age<19?'수능 점수 기준: 최상위권 대학 88 · 인서울 70 · 지방 국립대 54 · 지방 사립대 38. 당일 운에 따라 몇 점 오르내린다.':tab==='l'?'한 해를 어떤 태도로 살지 정합니다. 결과는 내년에 나옵니다.':tab==='i'?`현금 ${won(S.money)} · 투자 자산 ${won(wealth(S)-S.money)}`:'지금 고르면 결과는 내년에 나옵니다. 바꾸지 않으면 계속 이어집니다.';
+  if(WIDE.matches)$('shM').textContent=sheetOpen?'새로운 시기입니다. 계획을 고르고 아래 버튼을 누르면 이어집니다.':o.invs?`고르는 즉시 올해 계획이 됩니다. 결과는 내년에 나옵니다. 현금 ${won(S.money)} · 투자 자산 ${won(wealth(S)-S.money)}`:'고르는 즉시 올해 계획이 됩니다. 결과는 내년에 나옵니다.';
+  $('sheet').classList.toggle('need',sheetOpen);$('app').classList.toggle('asking',sheetOpen);
   $('shOk').disabled=!selA;
 }
+/* 넓은 화면에서는 계획 칸이 늘 열려 있고, 누르는 즉시 반영된다 */
+function syncPanel(){
+  if(!WIDE.matches||!S||ended)return;
+  const k=[S.age,S.plan.act,S.plan.inv,S.plan.work,S.plan.spend,!!S.job,sheetOpen,Math.round(S.money/100)].join('|');
+  if(k===panelKey)return; panelKey=k;
+  if(!sheetOpen){ selA=S.plan.act;selI=S.plan.inv;selW=S.plan.work;selS=S.plan.spend; }
+  drawSheet();
+}
+function instant(){ if(WIDE.matches&&!sheetOpen&&S&&S.age>=7){ if(selA)S.plan.act=selA; S.plan.inv=selI;S.plan.work=selW;S.plan.spend=selS; panelKey=''; planBar(); } }
 function openSheet(){
   clearTimeout(timer);timer=null;sheetOpen=true;tab='a';
   selA=S.plan.act;selI=S.plan.inv;selW=S.plan.work;selS=S.plan.spend;
   drawSheet();$('sheet').classList.remove('hidden');$('sheet').scrollTop=0;
-  $('ctl').classList.add('hidden');$('planBar').classList.add('hidden');
+  if(!WIDE.matches){ $('ctl').classList.add('hidden');$('planBar').classList.add('hidden'); }
   const L=$('log');L.scrollTop=L.scrollHeight;
 }
 function closeSheet(){
   S.plan.act=selA;S.plan.inv=selI;S.plan.work=selW;S.plan.spend=selS;
-  sheetOpen=false;$('sheet').classList.add('hidden');$('ctl').classList.remove('hidden');planBar();
+  sheetOpen=false;$('sheet').classList.add('hidden');$('ctl').classList.remove('hidden');planBar();panelKey='';syncPanel();
   const L=$('log');L.scrollTop=L.scrollHeight;
   if(!waiting&&!paused&&!ended)wait(150);
 }
@@ -1843,7 +1919,7 @@ function pick(card,b,i){
   card.replaceWith(p); waiting=false; arg=i; step();
 }
 function finish(e){
-  $('ctl').classList.add('hidden');$('planBar').classList.add('hidden');
+  $('ctl').classList.add('hidden');$('planBar').classList.add('hidden');$('app').classList.add('ended');
   const peak=S.hist.length?S.hist.reduce((a,h)=>LADDER.indexOf(h.tier)>LADDER.indexOf(a.tier)?h:a):null;
   const cv=S.hist.map(h=>`<li><time>${h.from}–${h.to}세</time><span>${esc(h.co)}<small>${h.label} · ${esc(h.title)}</small></span></li>`).join('');
   const school=S.edu==null?(S.hs==='meister'?'소프트웨어 마이스터고 졸업':'고졸'):EDU[S.edu]+(S.flags.usMs?' · 미국 석사':S.flags.ms?' · 석사':'');
@@ -1896,14 +1972,15 @@ function finish(e){
 }
 $('btnStart').onclick=begin;
 $('btnPlan').onclick=()=>{ if(!ended&&!sheetOpen)openSheet(); };
+WIDE.addEventListener('change',()=>{ panelKey=''; if(S&&!ended){ if(!WIDE.matches&&!sheetOpen)$('sheet').classList.add('hidden'); syncPanel(); planBar(); } });
 $('shOk').onclick=closeSheet;
 $('tabA').onclick=()=>{ tab='a';drawSheet(); };
 $('tabI').onclick=()=>{ tab='i';drawSheet(); };
 $('tabL').onclick=()=>{ tab='l';drawSheet(); };
-$('shW').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selW=t.dataset.id; drawSheet(); } });
-$('shS').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selS=t.dataset.id; drawSheet(); } });
-$('shA').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selA=t.dataset.id; drawSheet(); } });
-$('shI').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selI=t.dataset.id; drawSheet(); } });
+$('shW').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selW=t.dataset.id; instant(); drawSheet(); } });
+$('shS').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selS=t.dataset.id; instant(); drawSheet(); } });
+$('shA').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selA=t.dataset.id; instant(); drawSheet(); } });
+$('shI').addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t){ selI=t.dataset.id; instant(); drawSheet(); } });
 $('btnLive').onclick=live;
 $('btnPause').onclick=()=>{ paused=!paused; $('btnPause').textContent=paused?'계속':'일시정지'; $('btnPause').setAttribute('aria-pressed',paused); if(!paused&&!waiting&&!sheetOpen)wait(0); else clearTimeout(timer); };
 $('btnSpeed').onclick=()=>{ speed=speed===1?2:speed===2?4:1; $('btnSpeed').textContent=`속도 ${speed}배`; };
