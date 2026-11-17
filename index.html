@@ -54,6 +54,9 @@ h1 em{font-style:normal;color:var(--stamp)}
 .doc dt,.doc dd{padding:10px 4px;border-bottom:1px solid var(--line);font-size:15px}
 .doc dt{color:var(--muted)}
 .doc dd{font-weight:500}
+.doc dd input{font:inherit;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--ink);border-radius:4px;padding:6px 8px;width:100%;max-width:12em}
+.doc dd input:focus-visible{outline:2px solid var(--stamp);outline-offset:2px}
+.doc dd small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:3px}
 .seal{position:absolute;right:16px;top:58px;width:64px;height:64px;border:3px solid var(--stamp);border-radius:50%;color:var(--stamp);font-family:var(--display);font-weight:900;font-size:17px;display:grid;place-items:center;transform:rotate(-12deg);opacity:.85}
 .gifts{padding:16px 18px;display:flex;flex-direction:column;gap:8px}
 .gifts h3{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.04em}
@@ -1828,7 +1831,7 @@ function begin(){
     return {name:p.name,region:p.region,ending:p.ending,devYears:p.devYears,age:p.age,last:p.hist.length?p.hist[p.hist.length-1].co:null}; });
   rec={v:VER,seed,ans:[],plans:[],peers};
   $('birthDl').innerHTML=[['이름',S.name],['성별',S.gender],['출생 연도',S.birthYear+'년'],['출생지','대한민국 '+S.region],['아버지',S.parents.dad],['어머니',S.parents.mom],['가정 형편',FAM[S.fam].n],['집안 분위기',S.parents.mood],['집안 체질',S.parents.body]]
-    .map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('');
+    .map((r,i)=>i===0?`<dt><label for="nameIn">이름</label></dt><dd><input id="nameIn" type="text" maxlength="8" autocomplete="off" value="${esc(r[1])}" aria-describedby="nameHelp"><small id="nameHelp">직접 고쳐 쓸 수 있습니다 (8자까지)</small></dd>`:`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('');
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
   const fx=d=>Object.keys(d).map(k=>`<span class="${d[k]>0?'up':'dn'}">${BL[k]} ${d[k]>0?'+':'−'}${Math.abs(d[k])}</span>`).join('');
   $('giftBox').innerHTML='<h3>타고난 것</h3><ul>'+S.gifts.map(g=>`<li><b class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}</b><small>${esc(g.d)}</small></li>`).join('')+'</ul><h3>부모에게 받은 것</h3><ul>'+S.parents.notes.map(n=>`<li><span>${esc(n.t)}</span><small class="chips">${fx(n.d)||'<span>돈 감각</span>'}</small></li>`).join('')+`<li><span>물려받을 재력</span><small>${['기대하기 어렵다. 오히려 부모님을 도와야 한다','거의 없다','결혼할 때 조금 보태 주신다','결혼과 독립을 넉넉히 도와주신다','평생의 든든한 뒷배가 된다'][S.fam]}</small></li></ul>`;
@@ -1836,6 +1839,9 @@ function begin(){
   show(['birth']);$('birth').scrollTop=0;paint();
 }
 function live(){
+  const nm=($('nameIn')?$('nameIn').value:'').replace(/\s+/g,' ').trim().slice(0,8);
+  if(nm)S.name=nm;
+  rec.name=S.name;
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
@@ -1908,7 +1914,7 @@ function preview(nOpts){
   for(let i=0;i<nOpts;i++){
     const G={};
     for(let k=0;k<K;k++){
-      const s=newLife(rec.seed),g=life(s);g.next();
+      const s=newLife(rec.seed),g=life(s);s.name=rec.name;g.next();
       let ai=0,pi=0,a,cnt=0,r;
       while(cnt<beatNo){
         while(pi<rec.plans.length&&rec.plans[pi][0]<=cnt){ Object.assign(s.plan,rec.plans[pi][1]);pi++; }
@@ -1950,8 +1956,8 @@ function preview(nOpts){
 }
 /* 저장해 둔 인생을 이어서 한다 */
 function resume(d){
-  S=newLife(d.seed);it=life(S);it.next();beatNo=0;peers=d.peers;
-  rec={v:VER,seed:d.seed,ans:[],plans:[],peers:d.peers};
+  S=newLife(d.seed);if(d.name)S.name=d.name;it=life(S);it.next();beatNo=0;peers=d.peers;
+  rec={v:VER,seed:d.seed,name:S.name,ans:[],plans:[],peers:d.peers};
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
