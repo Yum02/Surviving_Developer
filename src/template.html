@@ -148,6 +148,20 @@ h1 em{font-style:normal;color:var(--stamp)}
 .career h3{font-family:var(--display);font-weight:900;font-size:20px;line-height:1.3}
 .career p{font-size:14.5px}
 
+/* 선택지 결과 예상 */
+.odds{display:flex;flex-direction:column;gap:1px;margin-top:4px;font-size:12px;line-height:1.45;color:var(--muted)}
+.odds b{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;margin-right:6px;color:var(--ink)}
+.odds .g{color:var(--good)} .odds .b{color:var(--bad)}
+/* 시작 화면 버튼, 기록실 */
+.startBtns{display:flex;flex-direction:column;gap:8px}
+.startBtns .ghost{padding:12px 10px}
+.link{background:none;border:0;padding:10px 0;font-size:14px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-align:left;min-height:44px}
+#hall{flex:1;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:16px;max-width:46em;width:100%;margin:0 auto}
+#hall h2{font-family:var(--display);font-weight:900;font-size:28px}
+#hallList li{grid-template-columns:1fr;padding:12px 0;border-bottom:1px solid var(--line)}
+#hallList b{font-size:16px}
+#hallList .badges{margin-top:6px}
+
 /* ===== 넓은 화면 ===== */
 .wideOnly{display:none}
 .note{font-size:13.5px;color:var(--muted)}
@@ -160,7 +174,7 @@ h1 em{font-style:normal;color:var(--stamp)}
   #start h1{font-size:64px}
   #start .parade{flex-wrap:nowrap;gap:8px}
   #start .parade canvas{width:52px;height:58.5px}
-  #start .primary{max-width:320px}
+  #start .startBtns{max-width:320px}
   #birth{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 32px;align-content:start;padding:40px 48px}
   #birth>.doc:first-child{grid-row:1/span 3}
   #app.play{display:grid;grid-template-columns:280px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;grid-template-areas:"hud log" "hud sheet" "ctl plan"}
@@ -236,8 +250,15 @@ h1 em{font-style:normal;color:var(--stamp)}
       <li><b>04</b><span>선택은 확률을 바꿀 뿐, 결과를 약속하지 않습니다.</span></li>
       <li><b>05</b><span>한국 회사에서 버틸지, 미국으로 건너갈지는 실력과 영어, 그리고 비자 추첨에 달렸습니다.</span></li>
     </ol>
-    <button class="primary" id="btnStart">태어나기</button>
+    <div class="startBtns" id="startBtns"><button class="primary" id="btnStart">태어나기</button></div>
     <p class="fine">한 번의 인생은 10~15분쯤 걸립니다. 등장하는 회사 이름과 확률은 모두 게임을 위해 지어낸 것이며 실제 통계가 아닙니다.</p>
+  </section>
+
+  <section id="hall" class="hidden">
+    <p class="eyebrow">이 기기에 남은 기록</p>
+    <h2>지난 인생</h2>
+    <ul class="cv" id="hallList"></ul>
+    <div class="row"><button class="ghost" id="btnHallClear">기록 지우기</button><button class="primary" id="btnHallBack">돌아가기</button></div>
   </section>
 
   <section id="birth" class="hidden">
@@ -286,9 +307,12 @@ h1 em{font-style:normal;color:var(--stamp)}
 <script>
 'use strict';
 const RAR=/*RAR*/;
+const VER=/*VER*/;
+let rec=null,beatNo=0;
+const store={get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(_){ return null; } },set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(_){} },del(k){ try{ localStorage.removeItem(k); }catch(_){} }};
 const $=id=>document.getElementById(id);
 const STAT=[['skill','실력'],['health','체력'],['mental','멘탈'],['network','인맥'],['english','영어']];
-const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산',study:'공부',rep:'평판',charm:'매력'};
+const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산',study:'공부',rep:'평판',charm:'매력',love:'애정'};
 function statList(){
   const a=[['skill','실력',S.st.skill],['health','체력',S.st.health],['mental','멘탈',S.st.mental],['network','인맥',S.st.network],['english','영어',S.st.english]];
   if(studyVisible(S))a.push(['study','공부',S.study]); else if(repVisible(S))a.push(['rep','평판',S.st.rep]);
@@ -362,13 +386,15 @@ if(!matchMedia('(prefers-reduced-motion: reduce)').matches)setInterval(()=>{ fra
 
 const WIDE=matchMedia('(min-width:1100px)');
 let panelKey='';
-function show(ids){ $('sheet').classList.add('hidden');sheetOpen=false;$('app').classList.toggle('play',ids.includes('hud'));$('app').classList.remove('ended','asking');panelKey=''; ['start','birth','hud','stage'].forEach(i=>$(i).classList.toggle('hidden',!ids.includes(i))); }
+function show(ids){ $('sheet').classList.add('hidden');sheetOpen=false;$('app').classList.toggle('play',ids.includes('hud'));$('app').classList.remove('ended','asking');panelKey=''; ['start','birth','hud','stage','hall'].forEach(i=>$(i).classList.toggle('hidden',!ids.includes(i))); }
 
 function begin(){
   const seed=(Math.random()*4294967296)>>>0;
-  S=newLife(seed);it=life(S);it.next();
+  S=newLife(seed);it=life(S);it.next();beatNo=0;store.del('sad.save');
   peers=[1,2,3,4].map(k=>{ const p=newLife((seed+k*9973)>>>0); p.birthYear=S.birthYear; p.autoPlan=true; const g=life(p); let r=g.next(),n=0;
-    while(!r.done&&n++<5000){ r=r.value.t==='choice'?g.next(Math.floor(Math.random()*r.value.opts.length)):g.next(); } return p; });
+    while(!r.done&&n++<5000){ r=r.value.t==='choice'?g.next(Math.floor(Math.random()*r.value.opts.length)):g.next(); }
+    return {name:p.name,region:p.region,ending:p.ending,devYears:p.devYears,age:p.age,last:p.hist.length?p.hist[p.hist.length-1].co:null}; });
+  rec={v:VER,seed,ans:[],plans:[],peers};
   $('birthDl').innerHTML=[['이름',S.name],['성별',S.gender],['출생 연도',S.birthYear+'년'],['출생지','대한민국 '+S.region],['아버지',S.parents.dad],['어머니',S.parents.mom],['가정 형편',FAM[S.fam].n],['집안 분위기',S.parents.mood],['집안 체질',S.parents.body]]
     .map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('');
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
@@ -412,30 +438,107 @@ function chips(d){
   return a.length?`<div class="chips">${a.join('')}</div>`:'';
 }
 function wait(ms){ clearTimeout(timer); timer=setTimeout(step,ms/speed); }
-function step(){
-  timer=null; if(paused||waiting||ended||sheetOpen)return;
-  const r=it.next(arg); arg=undefined;
-  if(r.done)return;
-  const b=r.value;
-  if(b.t==='year'){ add(mk('year',`<b>${b.age}세</b>${b.y}년`)); hud(); wait(450); }
-  else if(b.t==='log'){ add(mk('entry '+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+esc(b.text)+chips(b.d))); hud(); wait(1300+b.text.length*14); }
-  else if(b.t==='choice'){
-    waiting=true;
-    const c=mk('choice',`<div class="q">${esc(b.q)}</div>`+b.opts.map((o,i)=>`<button class="opt" data-i="${i}"><span>${esc(o.l)}</span>${o.h?`<small>${esc(o.h)}</small>`:''}</button>`).join(''));
-    c.addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t)pick(c,b,+t.dataset.i); });
-    add(c);
-    if(auto)timer=setTimeout(()=>{ if(waiting&&auto&&!paused)pick(c,b,Math.floor(Math.random()*b.opts.length)); },1400/speed);
-  }
+function save(){ if(rec&&S&&!ended)store.set('sad.save',Object.assign({},rec,{n:beatNo,name:S.name,age:S.age})); }
+function recPlan(){ if(rec){ rec.plans.push([beatNo,Object.assign({},S.plan)]); save(); } }
+function showChoice(b){
+  waiting=true;save();
+  const c=mk('choice',`<div class="q">${esc(b.q)}</div>`+b.opts.map((o,i)=>`<button class="opt" data-i="${i}"><span>${esc(o.l)}</span>${o.h?`<small>${esc(o.h)}</small>`:''}<span class="odds" id="od${i}"></span></button>`).join(''));
+  c.addEventListener('click',e=>{ const t=e.target.closest('.opt'); if(t)pick(c,b,+t.dataset.i); });
+  add(c);
+  setTimeout(()=>{ if(!waiting||!c.isConnected)return; const pv=preview(b.opts.length); pv.forEach((h,i)=>{ const el=c.querySelector('#od'+i); if(el)el.innerHTML=h; }); const L=$('log');L.scrollTop=L.scrollHeight; },40);
+  if(auto)timer=setTimeout(()=>{ if(waiting&&auto&&!paused)pick(c,b,Math.floor(Math.random()*b.opts.length)); },1400/speed);
+}
+function render(b,fast){
+  if(b.t==='year'){ add(mk('year',`<b>${b.age}세</b>${b.y}년`)); if(!fast){ hud(); save(); wait(450); } }
+  else if(b.t==='log'){ add(mk('entry '+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+esc(b.text)+chips(b.d))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
+  else if(b.t==='choice')showChoice(b);
   else if(b.t==='planpoint'){
+    if(fast)return;
     planBar();
     if(b.need||$('askEvery').checked){
-      if(auto){ const o=planOptions(S); if(!S.plan.act)S.plan.act=o.acts[Math.floor(Math.random()*o.acts.length)].id; planBar(); step(); }
+      if(auto){ const o=planOptions(S); if(!S.plan.act){ S.plan.act=o.acts[Math.floor(Math.random()*o.acts.length)].id; recPlan(); } planBar(); step(); }
       else openSheet();
     } else step();
   }
-  else if(b.t==='career'){ add(mk('career',`<p class="eyebrow">개발자 인생의 결말 · ${S.age}세</p><h3>${esc(b.title)}</h3><p>${esc(b.desc)}</p>`)); hud(); wait(3200); }
+  else if(b.t==='career'){ add(mk('career',`<p class="eyebrow">개발자 인생의 결말 · ${S.age}세</p><h3>${esc(b.title)}</h3><p>${esc(b.desc)}</p>`)); if(!fast){ hud(); wait(3200); } }
   else if(b.t==='end'){ ended=true; hud(); finish(b); }
-  else step();
+  else if(!fast)step();
+}
+function step(){
+  timer=null; if(paused||waiting||ended||sheetOpen)return;
+  const r=it.next(arg); arg=undefined; beatNo++;
+  if(r.done)return;
+  render(r.value,false);
+}
+/* 지금까지의 선택을 그대로 다시 돌려, 같은 순간에서 선택지마다 결과가 어떻게 갈리는지 미리 본다 */
+function preview(nOpts){
+  const K=24,out=[];
+  for(let i=0;i<nOpts;i++){
+    const G={};
+    for(let k=0;k<K;k++){
+      const s=newLife(rec.seed),g=life(s);g.next();
+      let ai=0,pi=0,a,cnt=0,r;
+      while(cnt<beatNo){
+        while(pi<rec.plans.length&&rec.plans[pi][0]<=cnt){ Object.assign(s.plan,rec.plans[pi][1]);pi++; }
+        r=g.next(a);a=undefined;cnt++;
+        if(r.value.t==='choice'&&cnt<beatNo)a=rec.ans[ai++];
+      }
+      while(pi<rec.plans.length){ Object.assign(s.plan,rec.plans[pi][1]);pi++; }
+      s.R.reseed((rec.seed^Math.imul(k+1,2654435761)^Math.imul(i+1,40503)^cnt)>>>0);
+      r=g.next(i);
+      let res=null,n=0;
+      while(!r.done&&n++<8){ const b=r.value;
+        if(b.t==='log'&&!b.tag){ res={tone:b.tone,d:Object.assign({},b.d||{}),f:[]}; break; }
+        if(b.t==='choice'){ res={sp:'다음 선택으로 이어진다'}; break; }
+        if(b.t==='career'||b.t==='end'){ res={sp:'개발자 인생이 여기서 끝난다'}; break; }
+        r=g.next(); }
+      if(!res)res={sp:'눈에 띄는 변화 없음'};
+      if(!res.sp){
+        const jc=(S.job&&S.job.co)!==(s.job&&s.job.co);
+        if(jc)res.f.push(s.job?(S.job?'회사를 옮긴다':'입사한다'):'회사를 나온다');
+        if(S.partner&&!s.partner)res.f.push('헤어진다');
+        else if(!S.partner&&s.partner)res.f.push('사귀게 된다');
+        else if(S.partner&&s.partner){ if(!S.partner.married&&s.partner.married)res.f.push('결혼한다'); const dl=s.partner.love-S.partner.love; if(Math.abs(dl)>=1)res.d.love=dl; }
+      }
+      const key=res.sp||[res.tone,res.f.join(','),Object.keys(res.d).filter(x=>Math.abs(res.d[x])>=1).sort().map(x=>x+(res.d[x]>0?'+':'-')).join(',')].join('|');
+      const gr=G[key]||(G[key]={n:0,res,sum:{}});gr.n++;
+      if(!res.sp)for(const x in res.d)gr.sum[x]=(gr.sum[x]||0)+res.d[x];
+    }
+    const gs=Object.values(G).sort((x,y)=>y.n-x.n);
+    out.push(gs.slice(0,3).map(gr=>{
+      const pc=gs.length===1?'':`<b>${Math.max(5,Math.round(gr.n/K*20)*5)}%</b>`;
+      if(gr.res.sp)return `<span>${pc}${gr.res.sp}</span>`;
+      const parts=gr.res.f.slice();
+      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||Math.abs(v)<1)continue; parts.push(`${LBL[x]} ${v>0?'+':'−'}${x==='money'?won(Math.abs(v)):Math.abs(Math.round(v))}`); }
+      const cls=gr.res.tone==='good'?'g':gr.res.tone==='bad'?'b':'';
+      return `<span class="${cls}">${pc}${parts.length?parts.join(' · '):(gr.res.tone==='good'?'좋은 결과':gr.res.tone==='bad'?'나쁜 결과':'별일 없이 지나간다')}</span>`;
+    }).join(''));
+  }
+  return out;
+}
+/* 저장해 둔 인생을 이어서 한다 */
+function resume(d){
+  S=newLife(d.seed);it=life(S);it.next();beatNo=0;peers=d.peers;
+  rec={v:VER,seed:d.seed,ans:[],plans:[],peers:d.peers};
+  $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
+  $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
+  $('nmTxt').textContent=S.name;
+  show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');
+  let ai=0,pi=0,last=null;
+  while(beatNo<d.n){
+    while(pi<d.plans.length&&d.plans[pi][0]<=beatNo){ Object.assign(S.plan,d.plans[pi][1]);rec.plans.push(d.plans[pi]);pi++; }
+    const r=it.next(arg);arg=undefined;beatNo++;
+    if(r.done)break;
+    last=r.value;
+    if(last.t==='choice'&&ai<d.ans.length){ const a=d.ans[ai++];rec.ans.push(a);add(mk('picked',`${esc(last.q)}<br><b>→ ${esc(last.opts[a].l)}</b>`));arg=a; }
+    else if(last.t==='choice'){ hud();planBar();showChoice(last);return; }
+    else if(last.t==='end'){ render(last,false);return; }
+    else render(last,true);
+  }
+  while(pi<d.plans.length){ Object.assign(S.plan,d.plans[pi][1]);rec.plans.push(d.plans[pi]);pi++; }
+  hud();planBar();
+  add(mk('picked','<b>저장한 곳에서 이어 합니다.</b>'));
+  if(last&&last.t==='planpoint'&&last.need&&!S.plan.act)openSheet(); else wait(900);
 }
 function planBar(){
   if(S.age<7||ended){ $('planBar').classList.add('hidden'); return; }
@@ -474,7 +577,7 @@ function syncPanel(){
   if(!sheetOpen){ selA=S.plan.act;selI=S.plan.inv;selW=S.plan.work;selS=S.plan.spend; }
   drawSheet();
 }
-function instant(){ if(WIDE.matches&&!sheetOpen&&S&&S.age>=7){ if(selA)S.plan.act=selA; S.plan.inv=selI;S.plan.work=selW;S.plan.spend=selS; panelKey=''; planBar(); } }
+function instant(){ if(WIDE.matches&&!sheetOpen&&S&&S.age>=7){ if(selA)S.plan.act=selA; S.plan.inv=selI;S.plan.work=selW;S.plan.spend=selS; recPlan(); panelKey=''; planBar(); } }
 function openSheet(){
   clearTimeout(timer);timer=null;sheetOpen=true;tab='a';
   selA=S.plan.act;selI=S.plan.inv;selW=S.plan.work;selS=S.plan.spend;
@@ -483,7 +586,7 @@ function openSheet(){
   const L=$('log');L.scrollTop=L.scrollHeight;
 }
 function closeSheet(){
-  S.plan.act=selA;S.plan.inv=selI;S.plan.work=selW;S.plan.spend=selS;
+  S.plan.act=selA;S.plan.inv=selI;S.plan.work=selW;S.plan.spend=selS;recPlan();
   sheetOpen=false;$('sheet').classList.add('hidden');$('ctl').classList.remove('hidden');planBar();panelKey='';syncPanel();
   const L=$('log');L.scrollTop=L.scrollHeight;
   if(!waiting&&!paused&&!ended)wait(150);
@@ -491,7 +594,7 @@ function closeSheet(){
 function pick(card,b,i){
   if(!waiting)return; clearTimeout(timer);
   const p=mk('picked',`${esc(b.q)}<br><b>→ ${esc(b.opts[i].l)}</b>`);
-  card.replaceWith(p); waiting=false; arg=i; step();
+  card.replaceWith(p); waiting=false; arg=i; rec.ans.push(i); save(); step();
 }
 function finish(e){
   $('ctl').classList.add('hidden');$('planBar').classList.add('hidden');$('app').classList.add('ended');
@@ -517,7 +620,7 @@ function finish(e){
   if(S.gifts.every(g=>g.p<0)&&/^r_/.test(e.id))B.push('불리한 출발을 이겨 낸 사람');
   if(S.fam===0&&wealth(S)>=50000)B.push('자수성가');
   const rar=RAR[e.id];
-  const pr=peers.map(p=>`<li><time>${esc(p.name)}</time><span>${esc(ENDINGS[p.ending].t)}<small>${p.region} 출생 · 개발자 ${p.devYears}년 · 향년 ${p.age}세${p.hist.length?' · 마지막 직장 '+esc(p.hist[p.hist.length-1].co):''}</small></span></li>`).join('');
+  const pr=peers.map(p=>`<li><time>${esc(p.name)}</time><span>${esc(ENDINGS[p.ending].t)}<small>${p.region} 출생 · 개발자 ${p.devYears}년 · 향년 ${p.age}세${p.last?' · 마지막 직장 '+esc(p.last):''}</small></span></li>`).join('');
   const r=mk('result',`
     <div class="head"><div><p class="eyebrow">${S.name}의 일생 · ${S.birthYear}–${S.birthYear+S.age} · 향년 ${S.age}세</p>
     <h2>${esc(e.title)}</h2></div><canvas id="avaEnd" class="px face" width="16" height="18" role="img" aria-label="노년의 주인공"></canvas></div>
@@ -534,18 +637,40 @@ function finish(e){
     <ul class="cv"><li><time>학력</time><span>${esc(school)}</span></li><li><time>타고남</time><span>${S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${esc(g.n)}</span>`).join(' · ')}</span></li><li><time>부모</time><span>${esc(S.parents.dad)} · ${esc(S.parents.mom)}<small>${esc(S.parents.mood)} · 가정 형편 ${FAM[S.fam].n}</small></span></li><li><time>가족</time><span>${esc(fam)}</span></li>${cv||'<li><time>경력</time><span>없음</span></li>'}</ul>
     <h3>같은 해에 태어난 네 사람</h3>
     <ul class="cv">${pr}</ul>
-    <div class="row"><button class="ghost" id="btnCopy">결과 복사</button><button class="primary" id="btnAgain">다시 태어나기</button></div>`);
+    <div class="row"><button class="ghost" id="btnCopy">결과 복사</button><button class="primary" id="btnAgain">다시 태어나기</button></div>
+    <button class="link" id="btnHall2">지난 인생 보기</button>`);
   $('log').appendChild(r);
   r.scrollIntoView({block:'start'});
+  store.del('sad.save');
+  const recs=store.get('sad.records')||[];
+  recs.unshift({name:S.name,by:S.birthYear,age:S.age,end:e.title,dev:S.devYears,w:Math.round(wealth(S)),sal:S.maxSal,b:B});
+  store.set('sad.records',recs.slice(0,50));
   paint();
   $('btnAgain').onclick=begin;
+  $('btnHall2').onclick=hall;
   $('btnCopy').onclick=()=>{
     const txt=`[개발자로 살아남기] ${S.name}(${S.birthYear}년 ${S.region} 출생)의 결말: ${e.title}. 개발자로 ${S.devYears}년, 최고 연봉 ${S.maxSal?won(S.maxSal):'없음'}${peak?', 대표 경력 '+peak.co:''}.`;
     const done=ok=>{ $('btnCopy').textContent=ok?'복사했습니다':'복사할 수 없습니다'; };
     try{ navigator.clipboard.writeText(txt).then(()=>done(true),()=>done(false)); }catch(_){ done(false); }
   };
 }
-$('btnStart').onclick=begin;
+function startUI(){
+  const sv=store.get('sad.save'),recs=store.get('sad.records')||[];
+  const ok=sv&&sv.v===VER&&sv.n>0;
+  $('startBtns').innerHTML=(ok?`<button class="primary" id="btnResume">이어 하기 · ${esc(sv.name)} ${sv.age}세</button><button class="ghost" id="btnStart">새로 태어나기</button>`:'<button class="primary" id="btnStart">태어나기</button>')+(recs.length?`<button class="link" id="btnHall">지난 인생 ${recs.length}개 보기</button>`:'');
+  $('btnStart').onclick=begin;
+  if(ok)$('btnResume').onclick=()=>resume(sv);
+  if(recs.length)$('btnHall').onclick=hall;
+}
+function hall(){
+  const recs=store.get('sad.records')||[];
+  $('hallList').innerHTML=recs.map(r=>`<li><span><b>${esc(r.name)}</b> · ${r.by}–${r.by+r.age} · 향년 ${r.age}세<small>${esc(r.end)} · 개발자 ${r.dev}년 · 최고 연봉 ${r.sal?won(r.sal):'없음'} · 남긴 자산 ${won(r.w)}</small>${r.b&&r.b.length?`<span class="badges">${r.b.map(x=>`<span>${esc(x)}</span>`).join('')}</span>`:''}</span></li>`).join('')||'<li><span>아직 끝까지 살아 본 인생이 없습니다.</span></li>';
+  $('btnHallClear').textContent='기록 지우기';$('btnHallClear').dataset.arm='';
+  show(['hall']);
+}
+$('btnHallBack').onclick=()=>{ show(['start']);startUI();paint(); };
+$('btnHallClear').onclick=e=>{ const b=e.currentTarget; if(b.dataset.arm){ store.del('sad.records');hall(); } else{ b.dataset.arm='1';b.textContent='한 번 더 누르면 모두 지웁니다'; } };
+startUI();
 $('btnPlan').onclick=()=>{ if(!ended&&!sheetOpen)openSheet(); };
 WIDE.addEventListener('change',()=>{ panelKey=''; if(S&&!ended){ if(!WIDE.matches&&!sheetOpen)$('sheet').classList.add('hidden'); syncPanel(); planBar(); } });
 $('shOk').onclick=closeSheet;

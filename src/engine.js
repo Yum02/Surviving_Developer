@@ -9,6 +9,7 @@ function mkR(seed){
   f.pick=arr=>arr[Math.floor(f()*arr.length)];
   f.w=pairs=>{let t=0;for(const p of pairs)t+=p[1];let x=f()*t;for(const p of pairs){x-=p[1];if(x<0)return p[0]}return pairs[pairs.length-1][0]};
   f.norm=()=>(f()+f()+f()+f()-2)/0.577;
+  f.reseed=x=>{a=x>>>0};
   return f;
 }
 /* 받침에 따라 조사를 고른다 */
