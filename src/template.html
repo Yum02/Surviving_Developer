@@ -83,7 +83,9 @@ h1 em{font-style:normal;color:var(--stamp)}
 .job{display:flex;flex-wrap:wrap;justify-content:space-between;gap:1px 10px;font-size:13.5px}
 .job #jobTxt{overflow-wrap:anywhere}
 .job #monTxt{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px 10px}
+#guide{font-size:12px;color:var(--muted);line-height:1.45}
+#guide b{color:var(--ink);font-weight:600}
 .stat{display:flex;flex-direction:column;gap:3px}
 .stat span{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
 .stat span i{font-style:normal;font-family:var(--mono);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -199,6 +201,7 @@ h1 em{font-style:normal;color:var(--stamp)}
     <div class="top"><canvas id="ava" class="px ava" width="16" height="18" role="img" aria-label="주인공의 지금 모습"></canvas><div class="meta"><div class="who"><span class="nm" id="nmTxt"></span><span class="ag" id="agTxt"></span></div>
     <div class="job"><span id="jobTxt"></span><span id="monTxt"></span></div></div></div>
     <div class="stats" id="stats"></div>
+    <p id="guide" class="hidden"></p>
   </header>
   <div id="stage" class="hidden">
   <main id="log" aria-live="polite"></main>
@@ -227,7 +230,14 @@ h1 em{font-style:normal;color:var(--stamp)}
 const RAR=/*RAR*/;
 const $=id=>document.getElementById(id);
 const STAT=[['skill','실력'],['health','체력'],['mental','멘탈'],['network','인맥'],['english','영어']];
-const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산'};
+const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산',study:'공부',rep:'평판',charm:'매력'};
+function statList(){
+  const a=[['skill','실력',S.st.skill],['health','체력',S.st.health],['mental','멘탈',S.st.mental],['network','인맥',S.st.network],['english','영어',S.st.english]];
+  if(studyVisible(S))a.push(['study','공부',S.study]); else if(repVisible(S))a.push(['rep','평판',S.st.rep]);
+  if(S.age>=13)a.push(['charm','매력',S.st.charm]);
+  if(S.partner)a.push(['love','애정',S.partner.love]);
+  return a;
+}
 let S,it,timer=null,paused=false,speed=1,auto=false,waiting=false,arg,peers=[],ended=false,sheetOpen=false,selA=null,selI='dep',selW='normal',selS='normal',tab='a';
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* ===== 도트 캐릭터: 16x18 격자에 직접 찍는다 ===== */
@@ -310,7 +320,6 @@ function begin(){
 function live(){
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
-  $('stats').innerHTML=STAT.map(([k,l])=>`<div class="stat"><span>${l}<i id="v_${k}">0</i></span><div class="bar" id="b_${k}"><u></u></div></div>`).join('');
   $('nmTxt').textContent=S.name;
   show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');hud();step();
 }
@@ -324,7 +333,13 @@ function hud(){
   $('jobTxt').textContent=j;
   $('monTxt').textContent=(S.job?`연봉 ${won(S.job.sal)} · `:'')+`자산 ${won(wealth(S))}`;
   sprite($('ava'),look(S),frame);
-  for(const [k] of STAT){ const v=Math.round(S.st[k]); $('v_'+k).textContent=v; const b=$('b_'+k); b.firstChild.style.width=v+'%'; b.classList.toggle('low',(k==='health'||k==='mental')&&v<30); }
+  $('stats').innerHTML=statList().map(([k,l,x])=>{ const v=Math.round(x); const low=(k==='health'||k==='mental'||k==='love')&&v<30; return `<div class="stat"><span>${l}<i>${v}</i></span><div class="bar${low?' low':''}"><u style="width:${v}%"></u></div></div>`; }).join('');
+  const g=$('guide');
+  if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'){
+    const q=studyGuide(S);
+    g.innerHTML=(S.age<=15?`과학고는 공부 60점부터 도전할 수 있다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
+    g.classList.remove('hidden');
+  } else g.classList.add('hidden');
 }
 function add(el){ const L=$('log'); L.appendChild(el); L.scrollTop=L.scrollHeight; }
 function mk(cls,html){ const d=document.createElement('div'); d.className=cls; d.innerHTML=html; return d; }
@@ -381,7 +396,7 @@ function drawSheet(){
   $('shA').classList.toggle('hidden',tab!=='a');$('shI').classList.toggle('hidden',tab!=='i');
   $('shA').innerHTML=o.acts.map(x=>row(x,selA)).join('');
   if(o.invs)$('shI').innerHTML=o.invs.map(x=>row(x,selI)).join('');
-  $('shM').textContent=tab==='l'?'한 해를 어떤 태도로 살지 정합니다. 결과는 내년에 나옵니다.':tab==='i'?`현금 ${won(S.money)} · 투자 자산 ${won(wealth(S)-S.money)}`:'지금 고르면 결과는 내년에 나옵니다. 바꾸지 않으면 계속 이어집니다.';
+  $('shM').textContent=tab==='a'&&studyVisible(S)&&S.age<19?'수능 점수 기준: 최상위권 대학 88 · 인서울 70 · 지방 국립대 54 · 지방 사립대 38. 당일 운에 따라 몇 점 오르내린다.':tab==='l'?'한 해를 어떤 태도로 살지 정합니다. 결과는 내년에 나옵니다.':tab==='i'?`현금 ${won(S.money)} · 투자 자산 ${won(wealth(S)-S.money)}`:'지금 고르면 결과는 내년에 나옵니다. 바꾸지 않으면 계속 이어집니다.';
   $('shOk').disabled=!selA;
 }
 function openSheet(){

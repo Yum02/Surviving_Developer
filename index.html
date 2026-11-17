@@ -83,7 +83,9 @@ h1 em{font-style:normal;color:var(--stamp)}
 .job{display:flex;flex-wrap:wrap;justify-content:space-between;gap:1px 10px;font-size:13.5px}
 .job #jobTxt{overflow-wrap:anywhere}
 .job #monTxt{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px 10px}
+#guide{font-size:12px;color:var(--muted);line-height:1.45}
+#guide b{color:var(--ink);font-weight:600}
 .stat{display:flex;flex-direction:column;gap:3px}
 .stat span{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
 .stat span i{font-style:normal;font-family:var(--mono);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -199,6 +201,7 @@ h1 em{font-style:normal;color:var(--stamp)}
     <div class="top"><canvas id="ava" class="px ava" width="16" height="18" role="img" aria-label="주인공의 지금 모습"></canvas><div class="meta"><div class="who"><span class="nm" id="nmTxt"></span><span class="ag" id="agTxt"></span></div>
     <div class="job"><span id="jobTxt"></span><span id="monTxt"></span></div></div></div>
     <div class="stats" id="stats"></div>
+    <p id="guide" class="hidden"></p>
   </header>
   <div id="stage" class="hidden">
   <main id="log" aria-live="polite"></main>
@@ -290,7 +293,7 @@ function newLife(seed){
   s.parentDev=R.chance(.04);
   s.talent=R.norm()*8;
   s.phase=R.int(0,18);
-  s.st={skill:0,health:clamp(72+R.int(-10,10)),mental:clamp(66+R.int(-10,10)),network:clamp(22+R.int(-6,10)),english:4+s.fam*3};
+  s.st={skill:0,health:clamp(72+R.int(-10,10)),mental:clamp(66+R.int(-10,10)),network:clamp(22+R.int(-6,10)),english:4+s.fam*3,rep:0,charm:clamp(34+R.norm()*8)};
   s.study=clamp(40+s.fam*4+R.norm()*12);
   s.money=0;s.job=null;s.hist=[];s.flags={};s.cd={};
   s.age=0;s.lv=1;s.lvYrs=0;s.track='ic';s.devYears=0;s.maxSal=0;s.huntYrs=0;s.loc='KR';s.usYrs=0;
@@ -304,7 +307,7 @@ function apply(s,d){
   for(const k in d){
     let v=d[k];
     if(k==='money'){ s.money+=v; out.money=v; }
-    else if(k==='study')s.study=clamp(s.study+v);
+    else if(k==='study'){ const b=s.study; s.study=clamp(b+v); if(studyVisible(s))out.study=s.study-b; }
     else{
       if(k==='skill'&&v>0)v*=(1-s.st.skill/135)*s.mul.skill;
       else if(v>0&&(k==='network'||k==='english'))v*=s.mul[k];
@@ -315,13 +318,22 @@ function apply(s,d){
   }
   return out;
 }
+/* 공부는 학생일 때, 평판은 일을 시작한 뒤에 보인다 */
+function studyVisible(s){ return s.age>=7&&s.devYears===0&&!s.job&&s.huntYrs===0&&!s.over; }
+function repVisible(s){ return !s.over&&s.age<60&&(!!s.job||s.devYears>0); }
+const UNI_CUT=[[88,'최상위권 대학'],[70,'인서울 대학'],[54,'지방 국립대'],[38,'지방 사립대'],[0,'전문대']];
+function studyGuide(s){
+  const sc=Math.round(s.study+s.fam*1.5);
+  const i=UNI_CUT.findIndex(c=>sc>=c[0]);
+  return {score:sc,tier:UNI_CUT[i][1],next:i>0?UNI_CUT[i-1][1]:null,gap:i>0?UNI_CUT[i-1][0]-sc:0};
+}
 function beat(s,text,tone,d){ const real=d?apply(s,d):null; return {t:'log',text,tone:tone||'n',d:real}; }
 function yr(s){ return {t:'year',age:s.age,y:s.birthYear+s.age}; }
 function ch(q,opts){ return {t:'choice',q,opts}; }
 function mkt(s,y){ if(y>=2020&&y<=2021)return .10; if(y>=2022&&y<=2024)return -.08; return Math.sin((y+s.phase)/2.6)*.06; }
 function hireP(s,tier){
   const c=CO[tier],st=s.st;
-  let p=c.hp+(st.skill-c.sk)*.012+st.network*.0015+(s.flags.intern?.06:0)+(s.flags.ms?.07:0)+(s.flags.portfolio?.04:0)+mkt(s,s.birthYear+s.age)+Math.min(s.devYears,8)*.015+s.luck+(s.job?0:s.wm.hire)+(s.flags.cert&&(tier==='big'||tier==='mid')?.04:0);
+  let p=c.hp+(st.skill-c.sk)*.012+st.network*.0015+(s.flags.intern?.06:0)+(s.flags.ms?.07:0)+(s.flags.portfolio?.04:0)+mkt(s,s.birthYear+s.age)+Math.min(s.devYears,8)*.015+s.luck+(s.job?0:s.wm.hire)+(s.devYears>0?(s.st.rep-30)*.0015:0)+(s.st.charm-40)*.0008+(s.flags.cert&&(tier==='big'||tier==='mid')?.04:0);
   if(tier==='big'||tier==='neka'||tier==='fkr')p+=[-.08,-.06,-.03,0,.05,.12][(s.edu==null?-1:s.edu)+1];
   if(c.us){ if(st.english<45)p*=.2; else p+=(st.english-60)*.004; if(s.flags.usExp||s.flags.usMs)p+=.2; }
   else{ if(s.flags.usExp)p+=.25; if(s.age>=45)p-=.22; if(s.age>=50)p-=.2; }
@@ -340,6 +352,7 @@ function hire(s,tier,o){
   if(tier==='free')sal=2500+s.st.skill*70;
   s.job={tier,co:name,sal:Math.round(sal),yrs:0,us:!!c.us};
   s.hist.push({co:name,tier,label:c.label,from:s.age,to:null,title:title(s)});
+  s.st.rep=s.devYears===0&&s.st.rep===0?20+(s.flags.intern?6:0):Math.round(s.st.rep*.75);
   s.huntYrs=0;s.flags.omen=0;s.flags.mentor=0;s.flags.stock=0;
   if(c.us)s.loc='US';
   s.maxSal=Math.max(s.maxSal,s.job.sal);
@@ -414,8 +427,8 @@ const GIFT=[
   {g:'g',n:'금방 싫증 냄',p:-1,d:'개인 프로젝트가 더디다',f:s=>{s.projMul=.7}},
   {g:'w',n:'알뜰함',p:1,d:'돈이 더 잘 모인다',f:s=>{s.saveMul=1.15}},
   {g:'w',n:'충동구매 기질',p:-1,d:'돈이 덜 모인다',f:s=>{s.saveMul=.85}},
-  {g:'r',n:'호감형',p:1,d:'고백과 청혼이 잘 통한다',f:s=>{s.charm=.12}},
-  {g:'r',n:'연애 숙맥',p:-1,d:'고백과 청혼이 잘 안 통한다',f:s=>{s.charm=-.1}}
+  {g:'r',n:'호감형',p:1,d:'고백과 청혼이 잘 통한다',f:s=>{s.st.charm=clamp(s.st.charm+15)}},
+  {g:'r',n:'연애 숙맥',p:-1,d:'고백과 청혼이 잘 안 통한다',f:s=>{s.st.charm=clamp(s.st.charm-12)}}
 ];
 function bornWith(s){
   const R=s.R;
@@ -522,7 +535,7 @@ function investResult(s){
 function* planResult(s){
   if(s.age<7)return;
   if(s.skipPlan>0){ s.skipPlan--; if(s.skipPlan===1){ const b=beat(s,'군 복무 중이라 세워 둔 계획은 잠시 멈췄다.'); b.tag='plan'; yield b; } }
-  else if(s.plan.act&&ACT[s.plan.act]){ const r=ACT[s.plan.act].run(s); const b=beat(s,r[0],r[1],r[2]); b.tag='plan'; yield b; }
+  else if(s.plan.act&&ACT[s.plan.act]){ const r=ACT[s.plan.act].run(s); const d=Object.assign({},r[2]); const cv=CHARM_ACT[s.plan.act]; if(cv&&s.age>=13)d.charm=cv; const b=beat(s,r[0],r[1],d); b.tag='plan'; yield b; }
   if(s.age>=20&&!s.mil){ const b=lifeResult(s); if(b)yield b; }
   if(s.age>=20){ const b=investResult(s); if(b)yield b; }
   const o=planOptions(s);let need=false;
@@ -586,7 +599,7 @@ function* later(s){
   while(true){
     yield* to(s,s.age+1);
     s.money+=Math.round(1300+Math.min(s.devYears,30)*45-2300+s.passive+(s.flags.retirePlan?300:0));s.passive=Math.round(s.passive*.85);
-    apply(s,{health:-1.6-(s.age-60)*.07,mental:.5,skill:-1});
+    apply(s,{health:-1.6-(s.age-60)*.07,mental:.5,skill:-1,charm:-.5});
     if(R.chance(.5)){ const r=R.pick(OLD)(s); yield beat(s,r[0],r[1],r[2]); }
     if(R.chance(.6))yield* draw(s,'o',OLD2);
     apply(s,{mental:-2,network:-1.5});
@@ -744,7 +757,7 @@ const EV2=[
  {id:'grad',w:s=>!s.flags.ms&&['big','neka','mid','fkr'].includes(s.job.tier)&&s.age<=40?3:0,cd:99,c:1,*run(s){ const i=yield ch('회사가 야간 대학원 학비를 지원한다고 한다.',[{l:'다닌다',h:'2년간 저녁이 없다'},{l:'다니지 않는다',h:''}]);
     if(i===0){ s.flags.ms=1; yield beat(s,'퇴근 후 강의실로 가는 생활을 견뎠다. 석사 학위가 생겼다.','good',{skill:6,health:-5,mental:-4,network:4}); }
     else yield beat(s,'저녁 시간을 지키기로 했다.','n',{mental:1}); }},
- {id:'nego',w:s=>s.job.yrs>=1?5:0,cd:4,c:1,*run(s){ const p=clamp(.3+s.st.skill/200,0,.85);
+ {id:'nego',w:s=>s.job.yrs>=1?5:0,cd:4,c:1,*run(s){ const p=clamp(.3+s.st.skill/200+s.st.rep/400,0,.9);
     const i=yield ch('연봉 협상 시즌이 왔다.',[{l:'근거를 들어 강하게 요구한다',h:'통하면 크게 오른다'},{l:'회사 제시안을 받아들인다',h:''}]);
     if(i===0){ if(s.R.chance(p)){ s.job.sal=Math.round(s.job.sal*1.08); yield beat(s,`작년 성과를 숫자로 정리해 갔다. 연봉이 ${won(s.job.sal)}이 됐다.`,'good',{mental:4}); }
                else yield beat(s,'"회사 사정이 어렵다"는 답이 돌아왔다. 분위기만 어색해졌다.','bad',{network:-3,mental:-3}); }
@@ -814,7 +827,7 @@ function* meet(s){
     {l:'천천히 가까워진다',h:'오래 걸린다 · 성공하기 쉽다'},
     {l:'마음을 접는다',h:''}]);
   if(j===2){ yield beat(s,`${J(c.name,'와')}는 좋은 지인으로 남았다.`,'n',{network:1}); return; }
-  const base=(j===0?.38:.58)+s.st.mental/500+s.st.network/500+s.charm;
+  const base=(j===0?.38:.58)+s.st.mental/500+s.st.network/500+(s.st.charm-40)/250;
   if(R.chance(clamp(base,.1,.9))){
     s.partner={name:c.name,d:c.d,trait:c.trait,love:j===0?58:66,yrs:0,married:false,wait:0};
     yield beat(s,j===0?`떨리는 목소리로 고백했다. ${J(c.name,'는')} 한참 웃더니 "나도"라고 했다.`:`석 달 동안 점심을 같이 먹었다. 어느 날 ${J(c.name,'가')} 먼저 손을 잡았다.`,'good',{mental:10});
@@ -903,7 +916,7 @@ const EV3=[
     if(j===0){ if(s.st.skill>=45){ bonus=.1;txt=`화면에 "나와 결혼해 줄래?"가 떴다. ${J(p.name,'는')} "예" 버튼을 눌렀다.`; } else{ bonus=-.1;txt='결정적인 순간에 화면이 멈췄다. 결국 말로 했다.'; } }
     else if(j===1){ txt=`디저트가 나오기 전에 말을 꺼냈다. ${p.name}의 눈이 커졌다.`; }
     else{ bonus=.06;apply(s,{money:-300});txt='해 질 무렵 바닷가에서 무릎을 꿇었다. 반지 상자를 여는 손이 떨렸다.'; }
-    if(R.chance(clamp(p.love/100+.1+bonus+s.charm,.08,.95))){ p.married=true;s.flags.married=1;lv(s,15);
+    if(R.chance(clamp(p.love/100+.1+bonus+(s.st.charm-40)/300,.08,.95))){ p.married=true;s.flags.married=1;lv(s,15);
       yield beat(s,`${txt} 그해 결혼식을 올렸다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-4000,network:3}); }
     else{ lv(s,-12); yield beat(s,`${txt} 하지만 ${J(p.name,'는')} "아직은 잘 모르겠어"라고 했다.`,'bad',{mental:-7}); } }},
  {id:'baby',w:s=>s.partner&&s.partner.married&&!s.flags.kid&&!s.flags.noKid&&s.age<=42?6:0,cd:2,c:1,*run(s){ const p=s.partner;
@@ -969,7 +982,7 @@ TEEN.push(
   ['친구들과 떡볶이집에서 시험 뒤풀이를 했다.','good',{mental:3,network:2}],
   ['학교 누리집의 허점을 발견해 선생님께 알렸다. 칭찬과 함께 "다른 데서는 하지 마라"는 말을 들었다.','good',{skill:3},s=>s.st.skill>15],
   {g:function*(s){ const i=yield ch('같은 반에 좋아하는 아이가 생겼다.',[{l:'용기 내어 고백한다',h:''},{l:'마음에만 담아 둔다',h:''}]);
-     if(i===0){ if(s.R.chance(.4))yield beat(s,'사귀게 됐다. 학년이 바뀌며 자연스럽게 멀어졌지만 좋은 기억으로 남았다.','good',{mental:7,study:-2});
+     if(i===0){ if(s.R.chance(.2+s.st.charm/200))yield beat(s,'사귀게 됐다. 학년이 바뀌며 자연스럽게 멀어졌지만 좋은 기억으로 남았다.','good',{mental:7,study:-2});
                 else yield beat(s,'"좋은 친구로 지내자"는 답을 들었다. 사흘 동안 급식이 맛없었다.','bad',{mental:-4}); }
      else yield beat(s,'말하지 못했다. 졸업 앨범을 볼 때마다 가끔 생각난다.','n',{mental:-1}); },c:s=>s.age>=14},
   {g:function*(s){ const i=yield ch('동아리를 정해야 한다.',[{l:'코딩 동아리',h:'실력'},{l:'방송부',h:'인맥'},{l:'축구부',h:'체력'}]);
@@ -1036,13 +1049,14 @@ const WORKMODE={
   job:[{id:'balance',l:'저녁을 지킨다',h:'멘탈·체력 회복 · 승진과 인상이 더디다'},{id:'normal',l:'평소대로 일한다',h:''},{id:'grind',l:'성과에 모든 걸 건다',h:'승진·인상에 유리 · 몸과 마음이 깎인다'}],
   seek:[{id:'balance',l:'쉬엄쉬엄 준비한다',h:'회복 · 합격이 조금 멀어진다'},{id:'normal',l:'평소대로 준비한다',h:''},{id:'grind',l:'준비에 모든 걸 건다',h:'합격에 유리 · 몸과 마음이 깎인다'}]};
 const SPEND=[{id:'frugal',l:'아껴 쓴다',h:'돈이 더 모인다 · 멘탈이 조금 깎인다'},{id:'normal',l:'평소대로 쓴다',h:''},{id:'enjoy',l:'즐기며 쓴다',h:'멘탈 회복 · 돈이 덜 모인다'}];
+const CHARM_ACT={fit:1.5,t_sport:1.5,trip:1,hobby:1,t_fun:1,net:1,t_club:1,k_swim:.5,o_walk:.5,o_travel:.5,family:.5};
 function lifeResult(s){
   const w=s.plan.work,sp=s.plan.spend,working=!!s.job,d={},t=[];
   s.wm={promo:1,raise:0,hire:0,layoff:0};s.sm=1;
   if(s.age<=60&&!s.over){
-    if(w==='balance'){ d.mental=3;d.health=3; s.wm={promo:.7,raise:-.01,hire:-.03,layoff:.01};
+    if(w==='balance'){ d.mental=3;d.health=3; if(working)d.rep=-1; s.wm={promo:.7,raise:-.01,hire:-.03,layoff:.01};
       t.push(working?pk(s,['정시에 퇴근하는 한 해를 보냈다.','저녁 약속을 한 번도 미루지 않았다.']):'쉬엄쉬엄 준비하며 숨을 골랐다.'); }
-    else if(w==='grind'){ d.skill=2;d.health=-2.5;d.mental=-3; lv(s,-3); s.wm={promo:1.5,raise:.02,hire:.06,layoff:-.03};
+    else if(w==='grind'){ d.skill=2;d.health=-2.5;d.mental=-3;d.charm=-1; if(working)d.rep=2.5; lv(s,-3); s.wm={promo:1.5,raise:.02,hire:.06,layoff:-.03};
       t.push(working?pk(s,['사무실 불을 마지막에 끄는 사람으로 한 해를 보냈다.','주말에도 회사 메신저를 켜 두었다.']):'눈을 뜨면 지원서, 눈 감기 전에는 코딩 테스트였다.'); }
   }
   if(sp==='frugal'){ s.sm=1.25; d.mental=(d.mental||0)-2; if(!working)d.money=300; t.push(pk(s,['도시락을 싸고 구독 서비스를 정리했다.','가계부의 지출 그래프가 눈에 띄게 내려갔다.'])); }
@@ -1152,7 +1166,7 @@ function* childhood(s){
   else if(i===1)yield beat(s,'티어는 올랐고 방학 숙제는 개학 전날 몰아서 했다.','n',{mental:6,study:-5,network:3});
   else yield beat(s,'남들 놀 때 문제집을 풀었다. 2학기 성적이 눈에 띄게 올랐다.','n',{study:8,mental:-4});
   yield* to(s,15);
-  const pM=clamp(.2+s.st.skill/40+s.study/250,.05,.9), pS=clamp((s.study-62)/40,.02,.8);
+  const pM=clamp(.2+s.st.skill/40+s.study/250,.05,.9), pS=clamp((s.study-60)/40,.02,.9);
   i=yield ch('중학교 3학년. 고등학교를 정해야 한다.',[
     {l:'일반고',h:'가장 흔한 길'},
     {l:'소프트웨어 마이스터고',h:pH(pM)+' · 졸업 후 바로 취업'},
@@ -1195,7 +1209,7 @@ function* csat(s){
   const R=s.R;
   let again=true;
   while(true){
-    const score=s.study+R.norm()*10+s.fam*1.5;
+    const score=s.study+s.fam*1.5+R.norm()*7;
     const tier=score>=88?4:score>=70?3:score>=54?2:score>=38?1:0;
     const txt=['수능 날 긴장으로 손이 떨렸다.','수능은 평소 실력만큼 나왔다.','수능 날, 찍은 문제가 유난히 잘 맞았다.'][R.int(0,2)];
     if(again&&tier<4){
@@ -1419,7 +1433,7 @@ const EV=[
     if(i===0){ if(R.chance(.3+s.st.skill/130))yield beat(s,'테스트를 먼저 깔고 조금씩 걷어 냈다. 배포 시간이 절반으로 줄었다.','good',{skill:7,network:4});
                else yield beat(s,'건드리지 말라던 그 함수가 결제를 맡고 있었다. 새벽까지 롤백했다.','bad',{mental:-6,network:-3,skill:3}); }
     else yield beat(s,'주석 한 줄을 보탰다. "저도 건드리지 않았습니다."','n',{mental:1}); }},
- {id:'head',w:s=>s.devYears>=2?4+s.st.network/20:0,cd:3,c:1,*run(s){ const R=s.R;
+ {id:'head',w:s=>s.devYears>=2?4+s.st.network/20+s.st.rep/15:0,cd:3,c:1,*run(s){ const R=s.R;
     const idx=LADDER.indexOf(s.job.tier);let cand=LADDER.slice(idx+1,idx+3).filter(t=>!CO[t].us);
     if(!cand.length||idx<0)cand=[s.job.tier==='usb'?'uss':s.job.tier];
     if(s.job.us)cand=[s.job.tier==='usb'?'uss':'usb'];
@@ -1525,6 +1539,15 @@ function* founderYear(s){
   if(x<pExit+.45){ j.sal=Math.round(j.sal*1.5+800); yield beat(s,R_(s,['투자 유치에 성공했다. 계약서에 서명하고 팀원들과 삼겹살을 먹었다.','매출이 처음으로 비용을 넘었다. 손익분기점이라는 단어를 소리 내어 읽어 봤다.']),'good',{mental:6,network:5}); }
   else yield beat(s,R_(s,['투자자 미팅 스물세 번째. "좋은 팀이네요, 지켜보겠습니다"를 스물세 번 들었다.','핵심 개발자가 퇴사했다. 다시 직접 코드를 짠다.','고객 문의 전화를 받다가 하루가 갔다.']),'n',{mental:-4,health:-3,skill:3});
 }
+/* 직장 사건에서 인맥이 오르내리면 사내 평판도 함께 움직인다 */
+function* withRep(s,gen){
+  let r=gen.next();
+  while(!r.done){
+    const b=r.value;
+    if(b.t==='log'&&b.d&&b.d.network&&s.job){ const before=s.st.rep; s.st.rep=clamp(before+b.d.network*1.2); b.d.rep=s.st.rep-before; }
+    const ans=yield b; r=gen.next(ans);
+  }
+}
 function* workYear(s){
   const R=s.R,y=s.birthYear+s.age;
   let j=s.job,c=CO[j.tier];
@@ -1532,12 +1555,13 @@ function* workYear(s){
   s.money+=Math.round(j.sal*(j.us?.24:.32)*s.saveMul*s.sm-(s.flags.kid?1100:0)-(s.flags.own?600:0)-(s.fam===0&&!s.flags.parentGone?200:0)+s.passive);
   if(s.fam===0&&!s.flags.support){ s.flags.support=1; yield beat(s,'첫 월급부터 부모님께 생활비를 보내기 시작했다.','n',{mental:-1}); }s.passive=Math.round(s.passive*.85);
   apply(s,{skill:c.learn-(s.track==='mgr'?1.6:0)-(s.age>45?.6:0),health:1-c.crunch*3-(s.age>40?.8:0),mental:-1.2-c.crunch*4+(s.flags.married?.6:0)});
+  apply(s,{rep:1+clamp((s.st.skill-c.sk)/20,-1,2),charm:s.age>50?-.5:0});
   if(j.tier==='founder'){ yield* founderYear(s); if(s.over||!s.job)return; }
   // 해고·권고사직
   let pL=(1-c.stab)*.5+(mkt(s,y)<-.03?.035:0)+(s.flags.omen?.22:0)-s.st.skill/1200;
   if(!j.us&&s.age>=42&&s.track!=='mgr'&&j.tier!=='free'&&j.tier!=='founder')pL+=.09+(s.age-42)*.009-s.st.network/900;
   if(!j.us&&s.age>=45&&s.track==='mgr'&&j.tier!=='founder')pL+=.035;
-  pL+=s.wm.layoff;
+  pL+=s.wm.layoff-s.st.rep/900;
   if(j.tier==='free')pL=s.age>=50?.1:.03;
   if(j.tier==='founder')pL=0;
   if(j.yrs>1&&R.chance(clamp(pL,0,.6))){
@@ -1562,7 +1586,7 @@ function* workYear(s){
     }
     if(!pool.length)break;
     const e=R.w(pool);s.cd[e.id]=s.age;if(e.c)usedChoice=true;
-    yield* e.run(s);
+    yield* withRep(s,e.run(s));
     if(s.over||!s.job)return;
   }
   j=s.job;c=CO[j.tier];
@@ -1570,7 +1594,7 @@ function* workYear(s){
   if(j.tier!=='founder'&&j.tier!=='free'&&s.lv<5){
     const need=[0,3,4,5,6][s.lv],thr=[0,42,58,70,84][s.lv];
     const ok=s.track==='mgr'&&s.lv>=3?s.st.network>=[0,0,0,52,78][s.lv]:s.st.skill>=thr;
-    if(s.lvYrs>=need&&ok&&R.chance((s.lv>=4?.2:.45)*s.wm.promo)){
+    if(s.lvYrs>=need&&ok&&R.chance((s.lv>=4?.2:.45)*s.wm.promo*(.6+s.st.rep/90))){
       if(s.lv===3&&!s.flags.trackAsked){
         s.flags.trackAsked=1;
         const i=yield ch('시니어 다음 단계가 보인다. 회사가 두 갈래 길을 제시했다.',[
@@ -1623,15 +1647,22 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT};
+if(typeof module!=='undefined')module.exports={newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible};
 
 </script>
 <script>
 'use strict';
-const RAR={"health":20.9,"r_ic":17.1,"r_cto":16.3,"burnout":11.9,"fire":8.6,"never":6.2,"r_us":4.6,"exit":3.5,"civil":2.9,"r_none":2.7,"r_mgr":2.3,"chicken":1.2,"teacher":1.1,"r_free":0.8,"r_founder":0};
+const RAR={"health":22.3,"r_ic":18.9,"r_cto":17.2,"burnout":11,"fire":10.3,"never":5.6,"r_us":4.8,"exit":3.4,"civil":3,"r_none":1.1,"r_mgr":1,"chicken":0.6,"teacher":0.5,"r_free":0.4};
 const $=id=>document.getElementById(id);
 const STAT=[['skill','실력'],['health','체력'],['mental','멘탈'],['network','인맥'],['english','영어']];
-const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산'};
+const LBL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',money:'자산',study:'공부',rep:'평판',charm:'매력'};
+function statList(){
+  const a=[['skill','실력',S.st.skill],['health','체력',S.st.health],['mental','멘탈',S.st.mental],['network','인맥',S.st.network],['english','영어',S.st.english]];
+  if(studyVisible(S))a.push(['study','공부',S.study]); else if(repVisible(S))a.push(['rep','평판',S.st.rep]);
+  if(S.age>=13)a.push(['charm','매력',S.st.charm]);
+  if(S.partner)a.push(['love','애정',S.partner.love]);
+  return a;
+}
 let S,it,timer=null,paused=false,speed=1,auto=false,waiting=false,arg,peers=[],ended=false,sheetOpen=false,selA=null,selI='dep',selW='normal',selS='normal',tab='a';
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* ===== 도트 캐릭터: 16x18 격자에 직접 찍는다 ===== */
@@ -1714,7 +1745,6 @@ function begin(){
 function live(){
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
-  $('stats').innerHTML=STAT.map(([k,l])=>`<div class="stat"><span>${l}<i id="v_${k}">0</i></span><div class="bar" id="b_${k}"><u></u></div></div>`).join('');
   $('nmTxt').textContent=S.name;
   show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');hud();step();
 }
@@ -1728,7 +1758,13 @@ function hud(){
   $('jobTxt').textContent=j;
   $('monTxt').textContent=(S.job?`연봉 ${won(S.job.sal)} · `:'')+`자산 ${won(wealth(S))}`;
   sprite($('ava'),look(S),frame);
-  for(const [k] of STAT){ const v=Math.round(S.st[k]); $('v_'+k).textContent=v; const b=$('b_'+k); b.firstChild.style.width=v+'%'; b.classList.toggle('low',(k==='health'||k==='mental')&&v<30); }
+  $('stats').innerHTML=statList().map(([k,l,x])=>{ const v=Math.round(x); const low=(k==='health'||k==='mental'||k==='love')&&v<30; return `<div class="stat"><span>${l}<i>${v}</i></span><div class="bar${low?' low':''}"><u style="width:${v}%"></u></div></div>`; }).join('');
+  const g=$('guide');
+  if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'){
+    const q=studyGuide(S);
+    g.innerHTML=(S.age<=15?`과학고는 공부 60점부터 도전할 수 있다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
+    g.classList.remove('hidden');
+  } else g.classList.add('hidden');
 }
 function add(el){ const L=$('log'); L.appendChild(el); L.scrollTop=L.scrollHeight; }
 function mk(cls,html){ const d=document.createElement('div'); d.className=cls; d.innerHTML=html; return d; }
@@ -1785,7 +1821,7 @@ function drawSheet(){
   $('shA').classList.toggle('hidden',tab!=='a');$('shI').classList.toggle('hidden',tab!=='i');
   $('shA').innerHTML=o.acts.map(x=>row(x,selA)).join('');
   if(o.invs)$('shI').innerHTML=o.invs.map(x=>row(x,selI)).join('');
-  $('shM').textContent=tab==='l'?'한 해를 어떤 태도로 살지 정합니다. 결과는 내년에 나옵니다.':tab==='i'?`현금 ${won(S.money)} · 투자 자산 ${won(wealth(S)-S.money)}`:'지금 고르면 결과는 내년에 나옵니다. 바꾸지 않으면 계속 이어집니다.';
+  $('shM').textContent=tab==='a'&&studyVisible(S)&&S.age<19?'수능 점수 기준: 최상위권 대학 88 · 인서울 70 · 지방 국립대 54 · 지방 사립대 38. 당일 운에 따라 몇 점 오르내린다.':tab==='l'?'한 해를 어떤 태도로 살지 정합니다. 결과는 내년에 나옵니다.':tab==='i'?`현금 ${won(S.money)} · 투자 자산 ${won(wealth(S)-S.money)}`:'지금 고르면 결과는 내년에 나옵니다. 바꾸지 않으면 계속 이어집니다.';
   $('shOk').disabled=!selA;
 }
 function openSheet(){
