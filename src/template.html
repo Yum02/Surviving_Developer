@@ -121,6 +121,8 @@ h1 em{font-style:normal;color:var(--stamp)}
 #ctl button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 
 /* 계획 */
+.tag.rare{color:var(--stamp);border-color:var(--stamp)}
+.entry.rareE{border-left-color:var(--stamp);background:linear-gradient(90deg,color-mix(in srgb,var(--stamp) 7%,transparent),transparent 70%)}
 .tag{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 5px;margin-right:7px;vertical-align:1px;white-space:nowrap}
 #planBar{flex:none;display:flex;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid var(--line);background:var(--card);font-size:13.5px}
 #planBar span{flex:1;min-width:0;overflow-wrap:anywhere}
@@ -578,11 +580,12 @@ async function openCard(e,B){
 
 function begin(sd,from){
   const seed=(typeof sd==='number'?sd:(Math.random()*4294967296))>>>0;
-  S=newLife(seed);it=life(S);it.next();beatNo=0;store.del('sad.save');
+  const recent=[...new Set([].concat(...(store.get('sad.recent')||[])))];
+  S=newLife(seed);S.recent=new Set(recent);it=life(S);it.next();beatNo=0;store.del('sad.save');
   peers=[1,2,3,4].map(k=>{ const p=newLife((seed+k*9973)>>>0); p.birthYear=S.birthYear; p.autoPlan=true; const g=life(p); let r=g.next(),n=0;
     while(!r.done&&n++<5000){ r=r.value.t==='choice'?g.next(Math.floor(Math.random()*r.value.opts.length)):g.next(); }
     return {name:p.name,region:p.region,ending:p.ending,devYears:p.devYears,age:p.age,last:p.hist.length?p.hist[p.hist.length-1].co:null}; });
-  rec={v:VER,seed,ans:[],plans:[],peers,from:from||null};
+  rec={v:VER,seed,ans:[],plans:[],peers,from:from||null,recent};
   $('birthDl').innerHTML=[['이름',S.name],['성별',S.gender],['출생 연도',S.birthYear+'년'],['출생지','대한민국 '+S.region],['아버지',S.parents.dad],['어머니',S.parents.mom],['가정 형편',FAM[S.fam].n],['집안 분위기',S.parents.mood],['집안 체질',S.parents.body]]
     .map((r,i)=>i===0?`<dt><label for="nameIn">이름</label></dt><dd><input id="nameIn" type="text" maxlength="8" autocomplete="off" value="${esc(r[1])}" aria-describedby="nameHelp"><small id="nameHelp">직접 고쳐 쓸 수 있습니다 (8자까지)</small></dd>`:`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('');
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
@@ -650,7 +653,7 @@ function showChoice(b){
 }
 function render(b,fast){
   if(b.t==='year'){ add(mk('year',`<b>${b.age}세</b>${b.y}년`)); if(!fast){ hud(); save(); wait(450); } }
-  else if(b.t==='log'){ add(mk('entry '+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+esc(b.text)+chips(b.d)+(b.src?`<small class="src">실제 통계 · ${esc(b.src)}</small>`:''))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
+  else if(b.t==='log'){ add(mk('entry '+(b.rare?'rareE ':'')+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+(b.rare?'<span class="tag rare">드문 일</span>':'')+esc(b.text)+chips(b.d)+(b.src?`<small class="src">실제 통계 · ${esc(b.src)}</small>`:''))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
   else if(b.t==='choice')showChoice(b);
   else if(b.t==='planpoint'){
     if(fast)return;
@@ -676,7 +679,7 @@ function preview(nOpts){
   for(let i=0;i<nOpts;i++){
     const G={};
     for(let k=0;k<K;k++){
-      const s=newLife(rec.seed),g=life(s);s.name=rec.name;g.next();
+      const s=newLife(rec.seed),g=life(s);s.name=rec.name;s.recent=new Set(rec.recent||[]);g.next();
       let ai=0,pi=0,a,cnt=0,r;
       while(cnt<beatNo){
         while(pi<rec.plans.length&&rec.plans[pi][0]<=cnt){ Object.assign(s.plan,rec.plans[pi][1]);pi++; }
@@ -718,8 +721,8 @@ function preview(nOpts){
 }
 /* 저장해 둔 인생을 이어서 한다 */
 function resume(d){
-  S=newLife(d.seed);if(d.name)S.name=d.name;it=life(S);it.next();beatNo=0;peers=d.peers;
-  rec={v:VER,seed:d.seed,name:S.name,ans:[],plans:[],peers:d.peers};
+  S=newLife(d.seed);if(d.name)S.name=d.name;S.recent=new Set(d.recent||[]);it=life(S);it.next();beatNo=0;peers=d.peers;
+  rec={v:VER,seed:d.seed,name:S.name,ans:[],plans:[],peers:d.peers,from:d.from||null,recent:d.recent||[]};
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
@@ -805,7 +808,7 @@ function finish(e){
   const B=badgesOf(S,e.id);
   const nw=addDex(e.id,B);
   const W=why(S,e.id),M=keyMoments(S,3);
-  const nwN=nw.e.length+nw.b.length+nw.g.length;
+  const nwN=nw.e.length+nw.b.length+nw.g.length+nw.r.length;
   const rar=RAR[e.id];
   const pr=peers.map(p=>`<li><time>${esc(p.name)}</time><span>${esc(ENDINGS[p.ending].t)}<small>${p.region} 출생 · 개발자 ${p.devYears}년 · 향년 ${p.age}세${p.last?' · 마지막 직장 '+esc(p.last):''}</small></span></li>`).join('');
   const r=mk('result',`
@@ -823,7 +826,7 @@ function finish(e){
     ${M.length?`<h3>결정적 순간들</h3><ul class="moments">${M.map(m=>`<li class="${m.tone}"><time>${m.a}세</time><span>${esc(m.t)}</span></li>`).join('')}</ul>`:''}
     <p class="fine">${esc(deathNote(S))}</p>
     ${B.length?`<h3>발자취</h3><div class="badges">${B.map(x=>`<span class="${nw.b.includes(x)?'new':''}">${esc(x)}</span>`).join('')}</div>`:''}
-    ${nwN?`<p class="newDex">도감에 새로 담았습니다. <b>${[nw.e.length?'결말 '+nw.e.length:'',nw.b.length?'칭호 '+nw.b.length:'',nw.g.length?'타고난 것 '+nw.g.length:''].filter(Boolean).join(' · ')}</b> · 모두 ${dexCount(loadDex())} / ${DEX_TOTAL()}</p>`:''}
+    ${nwN?`<p class="newDex">도감에 새로 담았습니다. <b>${[nw.e.length?'결말 '+nw.e.length:'',nw.b.length?'칭호 '+nw.b.length:'',nw.g.length?'타고난 것 '+nw.g.length:'',nw.r.length?'드문 일 '+nw.r.length:''].filter(Boolean).join(' · ')}</b> · 모두 ${dexCount(loadDex())} / ${DEX_TOTAL()}</p>`:''}
     <h3>이력</h3>
     <ul class="cv"><li><time>학력</time><span>${esc(school)}</span></li><li><time>타고남</time><span>${S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${esc(g.n)}</span>`).join(' · ')}</span></li><li><time>부모</time><span>${esc(S.parents.dad)} · ${esc(S.parents.mom)}<small>${esc(S.parents.mood)} · 가정 형편 ${FAM[S.fam].n}</small></span></li><li><time>가족</time><span>${esc(fam)}</span></li>${cv||'<li><time>경력</time><span>없음</span></li>'}</ul>
     <h3>같은 해에 태어난 네 사람</h3>
@@ -834,6 +837,7 @@ function finish(e){
   $('log').appendChild(r);
   r.scrollIntoView({block:'start'});
   store.del('sad.save');
+  const rl=store.get('sad.recent')||[]; rl.unshift(seenKeys(S)); store.set('sad.recent',rl.slice(0,3));
   const recs=store.get('sad.records')||[];
   recs.unshift({name:S.name,by:S.birthYear,age:S.age,end:e.title,dev:S.devYears,w:Math.round(wealth(S)),sal:S.maxSal,b:B,g:S.gifts.map(g=>g.n)});
   store.set('sad.records',recs.slice(0,50));
@@ -844,30 +848,34 @@ function finish(e){
   $('btnLink').onclick=e2=>copyText(birthLink(S.seed),e2.currentTarget,'같은 출생 링크');
   $('btnCard').onclick=()=>openCard(e,B);
 }
-const DEX_TOTAL=()=>Object.keys(ENDINGS).length+BADGES.length+GIFT.length;
+const RARE_NAME={floppy:'창고 속 디스켓',train:'기차 옆자리의 유명 개발자',space:'우주로 간 코드',blackout:'태풍 속 데이터센터',bounty:'버그 바운티 상금',lotto:'복권 3등',aurora:'오로라',hackathon:'세계 해커톤 우승',legacy:'스무 해 전의 코드',grandvar:'손주의 변수 이름'};
+const DEX_TOTAL=()=>Object.keys(ENDINGS).length+BADGES.length+GIFT.length+RARE.length;
 function loadDex(){
   let d=store.get('sad.dex');
-  if(!d){ d={e:{},b:{},g:{}};
+  if(d&&!d.r)d.r={};
+  if(!d){ d={e:{},b:{},g:{},r:{}};
     for(const r of (store.get('sad.records')||[])){ const id=Object.keys(ENDINGS).find(k=>ENDINGS[k].t===r.end); if(id)d.e[id]=(d.e[id]||0)+1; for(const b of (r.b||[]))d.b[b]=(d.b[b]||0)+1; for(const g of (r.g||[]))d.g[g]=(d.g[g]||0)+1; }
     store.set('sad.dex',d); }
   return d;
 }
-function dexCount(d){ return Object.keys(ENDINGS).filter(k=>d.e[k]).length+BADGES.filter(b=>d.b[b.n]).length+GIFT.filter(g=>d.g[g.n]).length; }
+function dexCount(d){ return Object.keys(ENDINGS).filter(k=>d.e[k]).length+BADGES.filter(b=>d.b[b.n]).length+GIFT.filter(g=>d.g[g.n]).length+RARE.filter(r=>d.r[r.id]).length; }
 function addDex(eid,badges){
-  const d=loadDex(),nw={e:[],b:[],g:[]};
+  const d=loadDex(),nw={e:[],b:[],g:[],r:[]};
   if(!d.e[eid])nw.e.push(eid); d.e[eid]=(d.e[eid]||0)+1;
   for(const b of badges){ if(!d.b[b])nw.b.push(b); d.b[b]=(d.b[b]||0)+1; }
   for(const g of S.gifts){ if(!d.g[g.n])nw.g.push(g.n); d.g[g.n]=(d.g[g.n]||0)+1; }
+  for(const r of S.tr.rare){ if(!d.r[r])nw.r.push(r); d.r[r]=(d.r[r]||0)+1; }
   store.set('sad.dex',d); return nw;
 }
 function dexHTML(){
   const d=loadDex(),E=Object.keys(ENDINGS);
   const sec=(title,got,all,cards)=>`<h3>${title}<i>${got} / ${all}</i></h3><div class="dexBar"><u style="width:${Math.round(got/all*100)}%"></u></div><div class="dexGrid">${cards}</div>`;
-  const eg=E.filter(k=>d.e[k]).length,bg=BADGES.filter(b=>d.b[b.n]).length,gg=GIFT.filter(g=>d.g[g.n]).length;
-  return `<p class="fine">끝까지 살아 본 인생에서 모은 것입니다. 빈칸에는 얻는 방법이 적혀 있습니다. 모두 ${eg+bg+gg} / ${DEX_TOTAL()}</p>`
+  const eg=E.filter(k=>d.e[k]).length,bg=BADGES.filter(b=>d.b[b.n]).length,gg=GIFT.filter(g=>d.g[g.n]).length,rg=RARE.filter(r=>d.r[r.id]).length;
+  return `<p class="fine">끝까지 살아 본 인생에서 모은 것입니다. 빈칸에는 얻는 방법이 적혀 있습니다. 모두 ${eg+bg+gg+rg} / ${DEX_TOTAL()}</p>`
    +sec('결말',eg,E.length,E.map(k=>d.e[k]?`<div class="dexCard"><b>${esc(ENDINGS[k].t)}</b><small>${esc(ENDING_HINT[k])}</small><i>${d.e[k]}번</i></div>`:`<div class="dexCard no"><b>아직 못 본 결말</b><small>${esc(ENDING_HINT[k])}</small></div>`).join(''))
    +sec('칭호',bg,BADGES.length,BADGES.map(b=>d.b[b.n]?`<div class="dexCard"><b>${esc(b.n)}</b><small>${esc(b.h)}</small><i>${d.b[b.n]}번</i></div>`:`<div class="dexCard no"><b>아직 없는 칭호</b><small>${esc(b.h)}</small></div>`).join(''))
-   +sec('타고난 것',gg,GIFT.length,GIFT.map(g=>d.g[g.n]?`<div class="dexCard"><b class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}</b><small>${esc(g.d)}</small><i>${d.g[g.n]}번</i></div>`:`<div class="dexCard no"><b>${g.p>0?'＋':'－'} 아직 못 받은 ${GIFT_GROUP[g.g]}</b><small>태어날 때 무작위로 받는다</small></div>`).join(''));
+   +sec('타고난 것',gg,GIFT.length,GIFT.map(g=>d.g[g.n]?`<div class="dexCard"><b class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}</b><small>${esc(g.d)}</small><i>${d.g[g.n]}번</i></div>`:`<div class="dexCard no"><b>${g.p>0?'＋':'－'} 아직 못 받은 ${GIFT_GROUP[g.g]}</b><small>태어날 때 무작위로 받는다</small></div>`).join(''))
+   +sec('드문 일',rg,RARE.length,RARE.map(r=>d.r[r.id]?`<div class="dexCard"><b>${esc(RARE_NAME[r.id])}</b><small>${esc(r.h)}</small><i>${d.r[r.id]}번</i></div>`:`<div class="dexCard no"><b>아직 겪지 못한 일</b><small>${esc(r.h)}</small></div>`).join(''));
 }
 function startUI(){
   const sv=store.get('sad.save'),recs=store.get('sad.records')||[];
@@ -900,7 +908,7 @@ $('shareBox').addEventListener('click',ev=>{ if(ev.target===$('shareBox'))$('sha
 document.addEventListener('keydown',ev=>{ if(ev.key==='Escape')$('shareBox').classList.add('hidden'); });
 window.addEventListener('hashchange',()=>{ if(!$('start').classList.contains('hidden'))startUI(); });
 $('btnHallBack').onclick=()=>{ show(['start']);startUI();paint(); };
-$('btnHallClear').onclick=e=>{ const b=e.currentTarget; if(b.dataset.arm){ store.del('sad.records');store.set('sad.dex',{e:{},b:{},g:{}});hall(); } else{ b.dataset.arm='1';b.textContent='한 번 더 누르면 기록과 도감을 모두 지웁니다'; } };
+$('btnHallClear').onclick=e=>{ const b=e.currentTarget; if(b.dataset.arm){ store.del('sad.records');store.set('sad.dex',{e:{},b:{},g:{},r:{}});store.del('sad.recent');hall(); } else{ b.dataset.arm='1';b.textContent='한 번 더 누르면 기록과 도감을 모두 지웁니다'; } };
 $('tabRec').onclick=()=>hall('rec');
 $('tabDex').onclick=()=>hall('dex');
 let hallTab='rec';

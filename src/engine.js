@@ -13,7 +13,7 @@ function mkR(seed){
   return f;
 }
 /* 받침에 따라 조사를 고른다 */
-function J(w,j){ const c=w.charCodeAt(w.length-1); const b=c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28!==0; return w+({'와':b?'과':'와','는':b?'은':'는','가':b?'이':'가'}[j]); }
+function J(w,j){ const c=w.charCodeAt(w.length-1); const b=c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28!==0; return w+({'와':b?'과':'와','는':b?'은':'는','가':b?'이':'가','를':b?'을':'를'}[j]); }
 function won(m){
   m=Math.round(m);const neg=m<0?'-':'';const v=Math.abs(m);
   if(v>=10000)return neg+(v/10000).toFixed(v>=100000?0:1)+'억 원';
@@ -93,7 +93,8 @@ function newLife(seed){
   s.edu=null;s.major=null;s.over=false;s.ending=null;
   bornWith(s);
   s.plan={act:null,inv:'dep',work:'normal',spend:'normal'};s.wm={promo:1,raise:0,hire:0,layoff:0};s.sm=1;s.port={etf:0,stock:0,coin:0,div:0};s.proj=0;s.passive=0;
-  s.tr={acts:{},inv:{},grind:0,balance:0,frugal:0,crunch:0,layoffs:0,hunt:0,sick:0,visaTry:0,visaWin:0,ipo:0,inherit:0};s.moments=[];
+  s.recent=null;s.everSeen={};s.chains=[];
+  s.tr={rare:[],acts:{},inv:{},grind:0,balance:0,frugal:0,crunch:0,layoffs:0,hunt:0,sick:0,visaTry:0,visaWin:0,ipo:0,inherit:0};s.moments=[];
   return s;
 }
 function apply(s,d){
@@ -299,6 +300,7 @@ const BADGES=[
   {n:'장학 기금 기부자',h:'노년에 재산을 기부한다',f:s=>!!s.flags.donate},
   {n:'아흔을 넘긴 장수',h:'아흔 살을 넘긴다',f:s=>s.age>=90},
   {n:'불리한 출발을 이겨 낸 사람',h:'나쁜 특성만 받고도 예순까지 개발자로 남는다',f:(s,e)=>s.gifts.every(g=>g.p<0)&&/^r_/.test(e)&&e!=='r_none'},
+  {n:'드문 일을 두 번 겪은 사람',h:'한 인생에서 드문 일을 두 번 이상 겪는다',f:s=>s.tr.rare.length>=2},
   {n:'자수성가',h:'형편이 어려운 집에서 태어나 5억 원 이상을 남긴다',f:s=>s.fam===0&&wealth(s)>=50000}
 ];
 function badgesOf(s,e){ return BADGES.filter(b=>b.f(s,e)).map(b=>b.n); }
@@ -453,6 +455,7 @@ function* to(s,target){
     else if(s.age>=13&&s.age<=18&&!s.job&&!s.over&&s.devYears===0&&!s.inUniv)yield* draw(s,'t',TEEN);
     else if(s.inUniv)yield* draw(s,'u',UNIV);
     if(s.age>=19)yield* loveTick(s);
+    if(!s.over||s.age>=60){ yield* chainTick(s); if(s.age>=7&&s.R.chance(.016))yield* rareTick(s); }
     if(s.age>=s.parentEnd&&!s.flags.parentGone){ s.flags.parentGone=1; const m=INHERIT[s.fam];
       yield beat(s,'부모님을 떠나보냈다. 장례를 치르고, 오래된 사진첩을 한 장씩 넘겨 봤다.','bad',{mental:-8});
       s.tr.inherit=m; if(m)yield beat(s,`부모님이 남긴 재산 ${won(m)}을 물려받았다.`,'n',{money:m}); }
@@ -512,14 +515,14 @@ function* later(s){
 }
 
 /* ================= 시기별 사건 묶음 (한 인생에서 같은 사건은 되풀이하지 않는다) ================= */
-const POOL_AGE={k:[7,12],t:[13,18],u:[19,40],h:[18,99],w:[18,99],o:[60,120],l:[19,59]};
+const POOL_AGE={k:[7,12],t:[13,18],u:[19,40],h:[18,99],w:[18,99],o:[60,120],l:[19,59],c:[19,99]};
 function* draw(s,key,POOL){
   const lim=POOL_AGE[key]; if(s.age<lim[0]||s.age>lim[1])return;
   s.seen=s.seen||{};
   const c=[];
   POOL.forEach((e,i)=>{ if(s.seen[key+i])return; const cond=Array.isArray(e)?e[3]:e.c; if(cond&&!cond(s))return; c.push(i); });
   if(!c.length){ for(const k in s.seen)if(k.startsWith(key))delete s.seen[k]; return; }
-  const i=s.R.pick(c);s.seen[key+i]=1;const e=POOL[i];
+  const i=s.R.w(c.map(j=>[j,s.recent&&s.recent.has(key+j)?.25:1]));s.seen[key+i]=1;s.everSeen[key+i]=1;const e=POOL[i];
   if(Array.isArray(e))yield beat(s,e[0],e[1]||'n',e[2]); else yield* e.g(s);
 }
 const KID=[
@@ -818,7 +821,7 @@ const EV3=[
     if(R.chance(clamp(p.love/100+.1+bonus+(s.st.charm-40)/300,.08,.95))){ p.married=true;s.flags.married=1;lv(s,15);
       yield cite(beat(s,`${txt} 그해 결혼식을 올렸다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-5900,network:3}),'wedding'); }
     else{ lv(s,-12); yield beat(s,`${txt} 하지만 ${J(p.name,'는')} "아직은 잘 모르겠어"라고 했다.`,'bad',{mental:-7}); } }},
- {id:'baby',w:s=>s.partner&&s.partner.married&&!s.flags.kid&&!s.flags.noKid&&s.age<=42?6:0,cd:2,c:1,*run(s){ const p=s.partner;
+ {id:'baby',w:s=>s.partner&&s.partner.married&&!s.flags.kid&&!s.flags.noKid&&s.age<=44?16:0,cd:1,c:1,*run(s){ const p=s.partner;
     const i=yield ch(`${J(p.name,'와')} 아이 이야기를 나눴다.`,[{l:'아이를 갖기로 한다',h:'기쁨이 크고, 돈과 체력이 든다'},{l:'둘이서 살기로 한다',h:''}]);
     if(i===1){ s.flags.noKid=1; yield beat(s,'둘만의 삶을 꾸리기로 했다. 대신 해마다 긴 여행을 가기로 약속했다.','n',{mental:3}); return; }
     if(s.R.chance(.7)){ s.flags.kid=1;lv(s,6); yield beat(s,'아이가 태어났다. 새벽 수유와 새벽 장애 대응이 겹치는 날이 있었다.','good',{mental:10,health:-5}); }
@@ -882,8 +885,8 @@ TEEN.push(
   ['학교 누리집의 허점을 발견해 선생님께 알렸다. 칭찬과 함께 "다른 데서는 하지 마라"는 말을 들었다.','good',{skill:3},s=>s.st.skill>15],
   {g:function*(s){ const i=yield ch('같은 반에 좋아하는 아이가 생겼다.',[{l:'용기 내어 고백한다',h:''},{l:'마음에만 담아 둔다',h:''}]);
      if(i===0){ if(s.R.chance(.2+s.st.charm/200))yield beat(s,'사귀게 됐다. 학년이 바뀌며 자연스럽게 멀어졌지만 좋은 기억으로 남았다.','good',{mental:7,study:-2});
-                else yield beat(s,'"좋은 친구로 지내자"는 답을 들었다. 사흘 동안 급식이 맛없었다.','bad',{mental:-4}); }
-     else yield beat(s,'말하지 못했다. 졸업 앨범을 볼 때마다 가끔 생각난다.','n',{mental:-1}); },c:s=>s.age>=14},
+                else{ yield beat(s,'"좋은 친구로 지내자"는 답을 들었다. 사흘 동안 급식이 맛없었다.','bad',{mental:-4}); if(s.R.chance(.5))s.chains.push({id:'crush',step:1,at:s.R.int(29,36),name:s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여'])}); } }
+     else{ yield beat(s,'말하지 못했다. 졸업 앨범을 볼 때마다 가끔 생각난다.','n',{mental:-1}); s.chains.push({id:'crush',step:1,at:s.R.int(29,36),name:s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여'])}); } },c:s=>s.age>=14},
   {g:function*(s){ const i=yield ch('동아리를 정해야 한다.',[{l:'코딩 동아리',h:'실력'},{l:'방송부',h:'인맥'},{l:'축구부',h:'체력'}]);
      if(i===0)yield beat(s,'동아리 서버를 직접 꾸렸다. 첫 과제는 급식 알림 프로그램이었다.','good',{skill:5,network:2});
      else if(i===1)yield beat(s,'점심 방송 사연을 읽었다. 전교생이 목소리를 안다.','good',{network:6,mental:2});
@@ -1030,6 +1033,108 @@ const EV4=[
  {id:'home',w:s=>!s.flags.home&&s.age>=24?3:0,cd:99,c:1,*run(s){ s.flags.home=1; const i=yield ch('이사할 때가 됐다. 어디에 살까?',[{l:'회사 근처의 좁은 집',h:'출퇴근이 짧다 · 월세가 비싸다'},{l:'멀지만 넓은 집',h:'집은 쾌적하다 · 출퇴근이 길다'}]);
     if(i===0)yield beat(s,'걸어서 출근한다. 아침잠이 삼십 분 늘었다.','good',{health:4,money:-300});
     else yield beat(s,'하루 세 시간을 지하철에서 보낸다. 대신 집에 서재가 생겼다.','n',{mental:3,health:-2}); }}
+];
+
+/* ================= 반복감 줄이기: 드문 일, 이어지는 이야기, 출생을 다시 부르는 사건 ================= */
+const RARE=[
+  {id:'floppy',h:'학창 시절의 우연',c:s=>s.age>=8&&s.age<=15,r:s=>['학교 창고 정리를 돕다가 오래된 디스켓 상자를 찾았다. 그 안에 누군가 만든 게임의 소스 코드가 들어 있었다.','good',{skill:4,mental:3}]},
+  {id:'train',h:'먼 길에서의 만남',c:s=>s.age>=20&&s.age<60,r:s=>['출장길 기차 옆자리에 책으로만 알던 유명 개발자가 앉아 있었다. 세 시간 동안 질문을 쏟아냈다.','good',{network:6,skill:2}]},
+  {id:'space',h:'실력 있는 직장인에게 오는 기회',c:s=>!!s.job&&s.st.skill>=50,r:s=>['팀이 만든 소프트웨어가 위성 지상국에 들어갔다. 발사 중계를 보며 혼자 조금 울었다.','good',{mental:8,rep:5}]},
+  {id:'blackout',h:'회사에 닥친 큰 사고',c:s=>!!s.job&&s.job.tier!=='free',r:s=>['태풍으로 데이터센터 전원이 나갔다. 비상 발전기 앞에서 밤새 서비스를 살려 냈다. 그날 이후 사내에서 전설로 불린다.','good',{rep:10,health:-3}]},
+  {id:'bounty',h:'실력이 아주 좋을 때',c:s=>s.st.skill>=60&&s.age<70,r:s=>['취미로 들여다본 해외 서비스에서 보안 취약점을 찾아 신고했다. 버그 바운티 상금이 들어왔다.','good',{money:3000,skill:2}]},
+  {id:'lotto',w:.35,h:'어른이 된 뒤의 행운',c:s=>s.age>=20,r:s=>['편의점에서 산 복권이 3등에 당첨됐다. 당첨금은 팀 회식으로 대부분 사라졌다.','good',{money:100,network:3,mental:3}]},
+  {id:'aurora',h:'여유가 있을 때의 충동',c:s=>s.age>=25&&s.money>1000,r:s=>['충동적으로 떠난 북유럽 여행에서 오로라를 봤다. 몇 년 치 피로가 한꺼번에 녹았다.','good',{mental:12,money:-500}]},
+  {id:'hackathon',w:2,h:'젊고 실력 있을 때',c:s=>s.age>=20&&s.age<=40&&s.st.skill>=55,r:s=>['세계 개발자 해커톤 본선에서 우승했다. 시상대에서 영어 소감을 더듬더듬 말했다.','good',{network:8,english:4,money:1500}]},
+  {id:'legacy',w:.7,h:'오래 일한 개발자에게',c:s=>s.age>=50&&s.devYears>=15,r:s=>['스무 해 전에 짠 코드가 아직도 은행 시스템 어딘가에서 돌고 있다는 연락을 받았다. 고칠 줄 아는 사람이 나뿐이라고 했다.','good',{money:800,mental:3}]},
+  {id:'grandvar',w:6,h:'손주가 있는 노년',c:s=>s.age>=65&&!!s.flags.kid,r:s=>['손주가 숙제로 만든 게임 코드에서 내 이름을 딴 변수를 발견했다.','good',{mental:6}]}
+];
+function* rareTick(s){
+  const c=RARE.filter(r=>!s.tr.rare.includes(r.id)&&r.c(s));
+  if(!c.length)return;
+  const r=s.R.w(c.map(x=>[x,x.w||1]));s.tr.rare.push(r.id);
+  const x=r.r(s);const b=beat(s,x[0],x[1],x[2]);b.rare=1;yield b;
+}
+/* 여러 해에 걸쳐 이어지는 이야기 */
+const CHAIN={
+  *oss(s,c){
+    if(c.step===1){
+      const i=yield ch('공개해 둔 작은 라이브러리에 별이 300개 붙었다. 모르는 사람들이 이슈를 올리기 시작했다.',[{l:'계속 관리한다',h:'주말이 줄어든다 · 실력과 인맥'},{l:'보관 처리하고 손을 뗀다',h:''}]);
+      if(i===1){ yield beat(s,'저장소에 "더 이상 관리하지 않습니다"라고 적었다. 마음 한쪽이 가벼워졌다.','n',{mental:2}); return; }
+      yield beat(s,'퇴근 후 이슈를 하나씩 닫았다. 처음 보는 기여자가 고마운 풀 리퀘스트를 보내왔다.','good',{skill:3,network:4,mental:-2});
+      s.chains.push({id:'oss',step:2,at:s.age+2}); return;
+    }
+    if(c.step===2){
+      const i=yield ch('큰 회사의 서비스가 내 라이브러리를 쓰고 있다는 걸 알게 됐다.',[{l:'후원 페이지를 연다',h:'작지만 꾸준한 수입'},{l:'유료 기능을 붙인다',h:'잘되면 수입, 안 되면 원성'},{l:'그냥 둔다',h:''}]);
+      if(i===0){ s.passive+=200; yield beat(s,'후원자가 하나둘 늘었다. 커피값 정도지만 보람은 그 이상이다.','good',{mental:4}); }
+      else if(i===1){ if(s.R.chance(.5)){ s.passive+=600; yield beat(s,'유료 기능을 쓰겠다는 회사가 여럿 나왔다. 부업 수입이 생겼다.','good',{money:500,mental:2}); } else yield beat(s,'"오픈소스 정신은 어디 갔냐"는 댓글이 쏟아졌다. 유료 기능을 다시 내렸다.','bad',{network:-4,mental:-4}); }
+      else yield beat(s,'그냥 두었다. 고맙다는 메일이 가끔 온다.','n',{mental:1});
+      s.chains.push({id:'oss',step:3,at:s.age+2}); return;
+    }
+    if(s.job&&s.age<55&&s.loc==='KR'){
+      const i=yield ch('라이브러리를 쓰던 그 회사에서 연락이 왔다. 만든 사람을 직접 뽑고 싶다고 한다.',[{l:'합류한다',h:'면접 없이 바로 입사'},{l:'정중히 거절한다',h:''}]);
+      if(i===0){ const tier=LADDER.indexOf(s.job.tier)>=LADDER.indexOf('neka')?s.job.tier:'neka'; hire(s,tier,{raise:1.2}); yield beat(s,`${s.job.co}에 합류했다. 첫 출근 날, 팀원들이 내 라이브러리 스티커를 노트북에 붙이고 있었다.`,'good',{mental:8,rep:6}); }
+      else yield beat(s,'거절했다. 대신 그 회사 개발자들과 좋은 친구가 됐다.','n',{network:5});
+    } else yield beat(s,'라이브러리 관리를 커뮤니티에 넘겼다. 첫 커밋 기록에는 여전히 내 이름이 있다.','good',{mental:4,network:2});
+  },
+  *junior(s,c){
+    if(!s.job||s.job.tier==='founder'||s.age>=58)return;
+    if(c.good){
+      const up=LADDER[Math.min(LADDER.indexOf(s.job.tier)+1,5)]||'neka';
+      const i=yield ch(`예전에 꼼꼼히 가르쳤던 신입 ${c.name}에게서 연락이 왔다. 지금은 다른 회사 팀장이 됐고, 나를 데려가고 싶다고 한다.`,[{l:'옮긴다',h:`${CO[up].label} · 연봉이 오른다`},{l:'고맙다고 하고 남는다',h:''}]);
+      if(i===0){ hire(s,up,{raise:1.15}); yield beat(s,`${s.job.co}로 옮겼다. 이번에는 ${J(c.name,'가')} 내 사수다.`,'good',{mental:6,network:3}); }
+      else yield beat(s,`${J(c.name,'와')} 저녁을 먹었다. "그때 배운 걸로 지금까지 먹고산다"는 말을 들었다.`,'good',{mental:5,network:4});
+    } else yield beat(s,`새로 온 팀장이 낯이 익었다. 예전에 알아서 하라고 내버려 뒀던 신입, ${c.name}였다.`,'bad',{mental:-6,rep:-3});
+  },
+  *crush(s,c){
+    if(s.partner||s.age>45)return;
+    const i=yield ch(`동창회에서 ${J(c.name,'를')} 다시 만났다. 학창 시절 말하지 못했던 그 사람이다.`,[{l:'연락처를 묻는다',h:''},{l:'인사만 하고 돌아선다',h:''}]);
+    if(i===1){ yield beat(s,'인사만 하고 돌아섰다. 집에 오는 길에 졸업 앨범이 떠올랐다.','n',{mental:-1}); return; }
+    if(s.R.chance(.45+(s.st.charm-40)/200)){
+      s.partner={name:c.name,d:'학창 시절 동창',trait:s.R.pick(['calm','art','active','biz','dev']),love:72,yrs:0,married:false,wait:0};
+      yield beat(s,`그날 밤 긴 메시지가 왔다. "사실 나도 그때 너 좋아했어." ${J(c.name,'와')} 다시 만나기 시작했다.`,'good',{mental:12});
+    } else yield beat(s,`${J(c.name,'는')} 곧 결혼한다고 했다. 진심으로 축하해 줬다.`,'n',{mental:-3});
+  }
+};
+function seenKeys(s){ return Object.keys(s.everSeen||{}); }
+function* chainTick(s){
+  const due=s.chains.filter(c=>c.at<=s.age);
+  if(!due.length)return;
+  s.chains=s.chains.filter(c=>c.at>s.age);
+  for(const c of due){ s.tr.chains=(s.tr.chains||0)+1; yield* CHAIN[c.id](s,c); if(s.over&&s.age<60)return; }
+}
+const EV5=[
+ {id:'ossLib',w:s=>!s.flags.ossLib&&s.st.skill>=40&&s.age<50?3:0,cd:99,c:1,*run(s){ s.flags.ossLib=1;
+    const i=yield ch('주말에 만든 작은 라이브러리가 있다. 세상에 공개할까?',[{l:'오픈소스로 공개한다',h:'반응이 있을지도 모른다'},{l:'혼자 쓴다',h:''}]);
+    if(i===0){ s.chains.push({id:'oss',step:1,at:s.age+1}); yield beat(s,'README를 세 번 고쳐 쓰고 공개 버튼을 눌렀다.','n',{skill:1}); }
+    else yield beat(s,'혼자 쓰기로 했다. 회사 일이 조금 편해졌다.','n',{skill:1}); }},
+ {id:'junior',w:s=>!s.flags.junior&&s.lv>=2&&s.age<48?3:0,cd:99,c:1,*run(s){ s.flags.junior=1;
+    const name=s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여']);
+    const i=yield ch(`신입 ${name}의 사수가 됐다. 내 일도 밀려 있다.`,[{l:'시간을 들여 꼼꼼히 가르친다',h:'당장은 내 일이 밀린다'},{l:'알아서 하게 둔다',h:''}]);
+    s.chains.push({id:'junior',step:1,at:s.age+s.R.int(5,8),good:i===0,name});
+    if(i===0)yield beat(s,`${J(name,'와')} 매일 삼십 분씩 코드를 같이 읽었다. 석 달 뒤 ${J(name,'가')} 첫 기능을 혼자 배포했다.`,'good',{network:3,mental:1,skill:-1});
+    else yield beat(s,`${J(name,'는')} 혼자 문서를 뒤지며 버텼다. 내 일정은 지켰다.`,'n',{skill:1}); }},
+ {id:'callback',w:s=>3,cd:3,*run(s){ yield* draw(s,'c',CALLBACK); }}
+];
+/* 타고난 것과 출생을 다시 불러오는 사건 */
+const CALLBACK=[
+  {g:function*(s){ yield beat(s,'회식 자리에서 또 구석에 앉았다. 낯가림은 서른이 넘어도 그대로다.','n',{network:-1}); },c:s=>s.gifts.some(g=>g.n==='낯가림')},
+  {g:function*(s){ yield beat(s,'처음 보는 옆 팀 사람과 점심을 먹고 돌아오는 길에 형, 동생 사이가 됐다.','good',{network:3}); },c:s=>s.gifts.some(g=>g.n==='타고난 붙임성')},
+  {g:function*(s){ yield beat(s,'알람을 다섯 개 맞췄다. 그래도 아침 회의에 3분 늦었다.','n',{rep:-1,mental:-1}); },c:s=>s.gifts.some(g=>g.n==='아침잠이 많음')},
+  {g:function*(s){ yield beat(s,'새벽 네 시에 일어나 아무도 없는 시간에 코드를 정리했다.','good',{skill:2}); },c:s=>s.gifts.some(g=>g.n==='잠이 적은 체질')},
+  {g:function*(s){ yield beat(s,'새로 나온 기계식 키보드를 또 샀다. 서랍에 비슷한 키보드가 세 개 있다.','n',{money:-60,mental:2}); },c:s=>s.gifts.some(g=>g.n==='충동구매 기질')},
+  {g:function*(s){ yield beat(s,'도시락을 싸 다닌 지 일 년. 통장 숫자가 조금 다르다.','good',{money:150}); },c:s=>s.gifts.some(g=>g.n==='알뜰함')},
+  {g:function*(s){ yield beat(s,'코드 리뷰 댓글 하나에 밤새 잠을 설쳤다. 다음 날 보니 별말 아니었다.','bad',{mental:-3}); },c:s=>s.gifts.some(g=>g.n==='예민한 성격')},
+  {g:function*(s){ yield beat(s,'배포가 꼬인 날에도 "내일은 낫겠지" 하며 치킨을 시켰다. 정말로 다음 날은 나았다.','good',{mental:3}); },c:s=>s.gifts.some(g=>g.n==='낙천적인 성격')},
+  {g:function*(s){ yield beat(s,'아무도 못 찾던 버그의 원인을 회의 도중 머릿속으로 짚어 냈다.','good',{skill:2,rep:2}); },c:s=>s.gifts.some(g=>g.n==='논리 감각')},
+  {g:function*(s){ yield beat(s,'해외 고객과의 화상 회의에서 하고 싶은 말의 절반만 했다.','bad',{mental:-2}); },c:s=>s.gifts.some(g=>g.n==='외국어 울렁증')},
+  {g:function*(s){ yield beat(s,'해외 오픈소스 커뮤니티 토론에서 자연스럽게 의견을 냈다. 답글이 길게 달렸다.','good',{english:2,network:2}); },c:s=>s.gifts.some(g=>g.n==='언어 감각')},
+  {g:function*(s){ yield beat(s,'팀 전체가 감기로 쓰러진 주에 혼자 멀쩡히 출근했다.','good',{rep:2}); },c:s=>s.gifts.some(g=>g.n==='강철 체력')},
+  {g:function*(s){ yield beat(s,'환절기마다 몸살이 찾아온다. 올해도 연차 이틀을 병원에서 썼다.','bad',{health:-2}); },c:s=>s.gifts.some(g=>g.n==='약한 몸')},
+  {g:function*(s){ yield beat(s,`${s.region}에 계신 부모님이 반찬을 한가득 보내셨다. 냉장고가 고향 냄새로 찼다.`,'good',{mental:3}); },c:s=>!s.flags.parentGone&&s.loc==='KR'},
+  {g:function*(s){ yield beat(s,`${s.parents.dad} 아버지께 요즘 하는 일을 설명했다. "그러니까 컴퓨터로 뭘 만든다는 거지?"`,'n',{mental:1}); },c:s=>!s.flags.parentGone&&s.parents.dad!=='개발자'},
+  {g:function*(s){ yield beat(s,`${s.parents.mom} 어머니가 회사 이름을 검색해 보셨다며 기사 캡처를 보내오셨다.`,'good',{mental:2}); },c:s=>!s.flags.parentGone&&s.parents.mom!=='개발자'},
+  {g:function*(s){ yield beat(s,'어릴 때 집에 컴퓨터가 없던 시절이 떠올랐다. 지금 책상에는 모니터가 세 대다.','n',{mental:2}); },c:s=>s.fam===0},
+  {g:function*(s){ yield beat(s,'개발자인 부모님과 같은 오픈소스 이슈에 댓글을 달았다. 서로 모른 척했다.','good',{mental:2,skill:1}); },c:s=>!!s.parentDev&&!s.flags.parentGone}
 ];
 
 /* ================= 유년기 ~ 고등학교 ================= */
@@ -1432,7 +1537,7 @@ const EV=[
 ].concat(EV2);
 function R_(s,arr){ return s.R.pick(arr); }
 for(const id of ['love','marry','kid']){ const i=EV.findIndex(e=>e.id===id); if(i>=0)EV.splice(i,1); }
-EV.push(...EV3,...EV4);
+EV.push(...EV3,...EV4,...EV5);
 
 function* founderYear(s){
   const R=s.R,j=s.job;
@@ -1494,10 +1599,10 @@ function* workYear(s){
       if(s.cd[e.id]&&s.age-s.cd[e.id]<=e.cd)continue;
       if(j.tier==='founder'&&!['body','checkup','burn','meet','propose','baby','kidlife','pet','petlife','lend','house','leave','tip','gig','folks'].includes(e.id))continue;
       if(j.tier==='free'&&['head','hop','mentor','boss','transfer','omen','stock','boom','found','flav','flav2','wkend','stack','clash','leave','grad','nego','oncall','cut','senior','club'].includes(e.id))continue;
-      const w=e.w(s);if(w>0)pool.push([e,w]);
+      const w=e.w(s);if(w>0)pool.push([e,w*(e.c&&s.recent&&s.recent.has('e:'+e.id)?.4:1)]);
     }
     if(!pool.length)break;
-    const e=R.w(pool);s.cd[e.id]=s.age;if(e.c)usedChoice=true;
+    const e=R.w(pool);s.cd[e.id]=s.age;s.everSeen['e:'+e.id]=1;if(e.c)usedChoice=true;
     yield* withRep(s,e.run(s));
     if(s.over||!s.job)return;
   }
@@ -1563,4 +1668,4 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
+if(typeof module!=='undefined')module.exports={RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
