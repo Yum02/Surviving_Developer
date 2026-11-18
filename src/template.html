@@ -686,7 +686,7 @@ function showChoice(b){
 }
 function render(b,fast){
   if(b.t==='year'){ add(mk('year',`<b>${b.age}세</b>${b.y}년`)); if(!fast){ hud(); save(); wait(450); } }
-  else if(b.t==='log'){ add(mk('entry '+(b.rare?'rareE ':'')+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+(b.rare?'<span class="tag rare">드문 일</span>':'')+esc(b.text)+chips(b.d)+(b.src?`<small class="src">실제 통계 · ${esc(b.src)}</small>`:''))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
+  else if(b.t==='log'){ add(mk('entry '+(b.rare?'rareE ':'')+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+(b.rare?'<span class="tag rare">드문 일</span>':'')+(b.era?`<span class="tag" title="${b.era==='future'?'2027년 이후의 뉴스는 게임 속 이야기입니다':''}">그해 뉴스</span>`:'')+esc(b.text)+chips(b.d)+(b.src?`<small class="src">실제 통계 · ${esc(b.src)}</small>`:''))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
   else if(b.t==='choice')showChoice(b);
   else if(b.t==='planpoint'){
     if(fast)return;
@@ -724,6 +724,8 @@ function preview(nOpts){
       r=g.next(i);
       let res=null,n=0;
       while(!r.done&&n++<8){ const b=r.value;
+        if(b.t==='year'){ res={sp:'later'}; break; }
+        if(b.t==='log'&&(b.era||b.rare)){ r=g.next(); continue; }
         if(b.t==='log'&&!b.tag){ res={tone:b.tone,d:Object.assign({},b.d||{}),f:[]}; break; }
         if(b.t==='choice'){ res={sp:'다음 선택으로 이어진다'}; break; }
         if(b.t==='career'||b.t==='end'){ res={sp:'개발자 인생이 여기서 끝난다'}; break; }
@@ -740,15 +742,19 @@ function preview(nOpts){
       const gr=G[key]||(G[key]={n:0,res,sum:{}});gr.n++;
       if(!res.sp)for(const x in res.d)gr.sum[x]=(gr.sum[x]||0)+res.d[x];
     }
-    const gs=Object.values(G).sort((x,y)=>y.n-x.n);
-    out.push(gs.slice(0,3).map(gr=>{
-      const pc=gs.length===1?'':`<b>${Math.max(5,Math.round(gr.n/K*20)*5)}%</b>`;
-      if(gr.res.sp)return `<span>${pc}${gr.res.sp}</span>`;
-      const parts=gr.res.f.slice();
-      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||Math.abs(v)<1)continue; parts.push(`${LBL[x]} ${v>0?'+':'−'}${x==='money'?won(Math.abs(v)):Math.abs(Math.round(v))}`); }
-      const cls=gr.res.tone==='good'?'g':gr.res.tone==='bad'?'b':'';
-      return `<span class="${cls}">${pc}${parts.length?parts.join(' · '):(gr.res.tone==='good'?'좋은 결과':gr.res.tone==='bad'?'나쁜 결과':'별일 없이 지나간다')}</span>`;
-    }).join(''));
+    /* 좋은 결과만 보여 준다. 나쁜 결과와 깎이는 수치는 감춘다 */
+    const GOODF=['입사한다','회사를 옮긴다','사귀게 된다','결혼한다'];
+    const shown={};
+    for(const gr of Object.values(G)){
+      if(gr.res.sp||gr.res.tone==='bad')continue;
+      const parts=gr.res.f.filter(f=>GOODF.includes(f));
+      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||v<1)continue; parts.push(`${LBL[x]} +${x==='money'?won(v):Math.round(v)}`); }
+      if(!parts.length)continue;
+      const key=parts.join(' · ');
+      (shown[key]||(shown[key]={n:0,txt:key})).n+=gr.n;
+    }
+    const gs=Object.values(shown).sort((x,y)=>y.n-x.n).slice(0,3);
+    out.push(gs.map(g=>{ const pc=g.n>=K?'':`<b>${Math.max(5,Math.round(g.n/K*20)*5)}%</b>`; return `<span class="g">${pc}${g.txt}</span>`; }).join(''));
   }
   return out;
 }
