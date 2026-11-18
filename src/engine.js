@@ -76,8 +76,8 @@ function title(s){
   return (s.job.us?(m?T_USM:T_US):(m?T_KRM:T_KR))[s.lv];
 }
 
-function newLife(seed){
-  const R=mkR(seed);const s={seed,R};
+function newLife(seed,o){
+  const R=mkR(seed);const s={seed,R};s.heirName=o&&o.heir||null;
   s.gender=R.chance(.5)?'남':'여';
   s.name=R.w(SUR)+R.pick(GIVEN[s.gender]);
   s.birthYear=R.int(1996,2006);
@@ -248,6 +248,8 @@ function bornWith(s){
   s.parents={dad:dad[0],mom:mom[0],mood:mood[0],body:body[0],notes};
   s.parentEnd=R.int(48,66);
   const pool=GIFT.slice();s.gifts=[];
+  /* 지난 생에서 물려받은 것은 먼저 받고, 나머지 두 개를 뽑는다 */
+  if(s.heirName){ const g=pool.find(x=>x.n===s.heirName); if(g){ pool.splice(pool.indexOf(g),1); g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d,inh:1}); } }
   while(s.gifts.length<3){ const g=pool.splice(R.int(0,pool.length-1),1)[0]; if(s.gifts.some(x=>x.g===g.g))continue; g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d}); }
 }
 /* 등록 연도 y의 추첨은 회계연도 y+1 몫이다 */
@@ -303,6 +305,22 @@ const BADGES=[
   {n:'드문 일을 두 번 겪은 사람',h:'한 인생에서 드문 일을 두 번 이상 겪는다',f:s=>s.tr.rare.length>=2},
   {n:'자수성가',h:'형편이 어려운 집에서 태어나 5억 원 이상을 남긴다',f:s=>s.fam===0&&wealth(s)>=50000}
 ];
+/* 이번 생의 목표: 출생 때 세 개를 제안하고 하나를 고른다. 게임 진행에는 영향이 없다 */
+const GOALS=[
+  {id:'sixty',d:'쉬움',n:'예순까지 개발자로 남기',f:(s,e)=>/^r_/.test(e)&&e!=='r_none'},
+  {id:'us',d:'어려움',n:'미국 회사에서 일하기',f:s=>s.hist.some(h=>CO[h.tier].us),now:s=>s.hist.some(h=>CO[h.tier].us)},
+  {id:'sal2',d:'쉬움',n:'연봉 2억 원 넘기기',f:s=>s.maxSal>=20000,now:s=>s.maxSal>=20000},
+  {id:'cto',d:'보통',n:'CTO가 되기',f:(s,e)=>e==='r_cto'||(s.track==='mgr'&&s.lv>=5),now:s=>s.track==='mgr'&&s.lv>=5},
+  {id:'found',d:'어려움',n:'내 회사 세우기',f:s=>s.hist.some(h=>h.tier==='founder'),now:s=>s.hist.some(h=>h.tier==='founder')},
+  {id:'rich',d:'보통',n:'10억 원 남기기',f:s=>wealth(s)>=100000},
+  {id:'family',d:'보통',n:'결혼해서 아이 키우기',f:s=>!!(s.partner&&s.partner.married&&s.flags.kid),now:s=>!!(s.partner&&s.partner.married&&s.flags.kid)},
+  {id:'ninety',d:'보통',n:'아흔까지 살기',f:s=>s.age>=90},
+  {id:'loyal',d:'쉬움',n:'한 회사에서 15년 일하기',f:s=>s.hist.some(h=>h.tier!=='free'&&h.tier!=='founder'&&(h.to==null?s.age:h.to)-h.from>=15),now:s=>s.hist.some(h=>h.tier!=='free'&&h.tier!=='founder'&&(h.to==null?s.age:h.to)-h.from>=15)},
+  {id:'hit',d:'어려움',n:'개인 프로젝트 대박 내기',f:s=>!!s.flags.projHit,now:s=>!!s.flags.projHit},
+  {id:'fire',d:'매우 어려움',n:'일찍 경제적 자유 얻기',f:(s,e)=>e==='fire'},
+  {id:'neka',d:'보통',n:'네카라쿠배에 들어가기',f:s=>s.hist.some(h=>h.tier==='neka'),now:s=>s.hist.some(h=>h.tier==='neka')}
+];
+function pickGoals(seed){ const R=mkR((seed^0x9e3779b9)>>>0),p=GOALS.slice(),o=[]; while(o.length<3)o.push(p.splice(R.int(0,p.length-1),1)[0]); return o; }
 function badgesOf(s,e){ return BADGES.filter(b=>b.f(s,e)).map(b=>b.n); }
 function why(s,e){
   const R=[],t=s.tr,G=n=>s.gifts.some(g=>g.n===n),st=t.endSt||s.st,V=k=>Math.round(st[k]);
@@ -1668,4 +1686,4 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
+if(typeof module!=='undefined')module.exports={GOALS,pickGoals,RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};

@@ -211,6 +211,19 @@ h1 em{font-style:normal;color:var(--stamp)}
 .dexCard.no b{color:var(--muted)}
 .dexCard .up{color:var(--good)} .dexCard .dn{color:var(--bad)}
 
+/* 목표, 물려받기 */
+.goalLine{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px}
+.goalLine span{font-size:12px;color:var(--muted)}
+.goalLine b{font-weight:600}
+.goalLine i{font-style:normal;font-size:11.5px;font-family:var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px}
+.goalLine i.ok{color:var(--good);border-color:var(--good)}
+.inh{font-size:11px;font-weight:600;color:var(--stamp);border:1px solid var(--stamp);border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:1px;white-space:nowrap}
+.goalRes{border-radius:6px;padding:10px 12px;font-size:14.5px;border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.goalRes.ok{border-color:var(--good)} .goalRes small{color:var(--muted);font-size:12.5px}
+.goalRes b.ok{color:var(--good)} .goalRes b.no{color:var(--bad)}
+.heir{display:flex;flex-direction:column;gap:6px}
+.heir .opts{grid-template-columns:1fr 1fr}
+
 /* 공유 */
 #shareBox{position:fixed;inset:0;z-index:20;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center;padding:16px}
 #shareBox.hidden{display:none}
@@ -338,6 +351,7 @@ h1 em{font-style:normal;color:var(--stamp)}
       <dl id="birthDl"></dl>
     </div>
     <div class="doc gifts" id="giftBox"></div>
+    <div class="doc gifts" id="goalBox"><h3 id="goalH">이번 생의 목표</h3><p class="fine">하나를 고르면 플레이 내내 위쪽에 보이고, 마지막에 이뤘는지 알려 드립니다. 게임 진행에는 영향을 주지 않습니다.</p><div class="opts" id="goalOpts" role="radiogroup" aria-labelledby="goalH"></div></div>
     <p class="peers" id="peerTxt"></p>
     <button class="primary" id="btnLive">삶을 시작한다</button>
   </section>
@@ -347,6 +361,7 @@ h1 em{font-style:normal;color:var(--stamp)}
     <div class="job"><span id="jobTxt"></span><span id="monTxt"></span></div></div></div>
     <div class="stats" id="stats"></div>
     <p id="guide" class="hidden"></p>
+    <p id="goalLine" class="goalLine hidden"></p>
     <details id="traits" class="traits"><summary><span class="tl">타고난 것</span><span id="traitSum"></span></summary><ul id="traitList"></ul></details>
   </header>
   <div id="stage" class="hidden">
@@ -457,8 +472,8 @@ function title(s){
   return (s.job.us?(m?T_USM:T_US):(m?T_KRM:T_KR))[s.lv];
 }
 
-function newLife(seed){
-  const R=mkR(seed);const s={seed,R};
+function newLife(seed,o){
+  const R=mkR(seed);const s={seed,R};s.heirName=o&&o.heir||null;
   s.gender=R.chance(.5)?'남':'여';
   s.name=R.w(SUR)+R.pick(GIVEN[s.gender]);
   s.birthYear=R.int(1996,2006);
@@ -629,6 +644,8 @@ function bornWith(s){
   s.parents={dad:dad[0],mom:mom[0],mood:mood[0],body:body[0],notes};
   s.parentEnd=R.int(48,66);
   const pool=GIFT.slice();s.gifts=[];
+  /* 지난 생에서 물려받은 것은 먼저 받고, 나머지 두 개를 뽑는다 */
+  if(s.heirName){ const g=pool.find(x=>x.n===s.heirName); if(g){ pool.splice(pool.indexOf(g),1); g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d,inh:1}); } }
   while(s.gifts.length<3){ const g=pool.splice(R.int(0,pool.length-1),1)[0]; if(s.gifts.some(x=>x.g===g.g))continue; g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d}); }
 }
 /* 등록 연도 y의 추첨은 회계연도 y+1 몫이다 */
@@ -684,6 +701,22 @@ const BADGES=[
   {n:'드문 일을 두 번 겪은 사람',h:'한 인생에서 드문 일을 두 번 이상 겪는다',f:s=>s.tr.rare.length>=2},
   {n:'자수성가',h:'형편이 어려운 집에서 태어나 5억 원 이상을 남긴다',f:s=>s.fam===0&&wealth(s)>=50000}
 ];
+/* 이번 생의 목표: 출생 때 세 개를 제안하고 하나를 고른다. 게임 진행에는 영향이 없다 */
+const GOALS=[
+  {id:'sixty',d:'쉬움',n:'예순까지 개발자로 남기',f:(s,e)=>/^r_/.test(e)&&e!=='r_none'},
+  {id:'us',d:'어려움',n:'미국 회사에서 일하기',f:s=>s.hist.some(h=>CO[h.tier].us),now:s=>s.hist.some(h=>CO[h.tier].us)},
+  {id:'sal2',d:'쉬움',n:'연봉 2억 원 넘기기',f:s=>s.maxSal>=20000,now:s=>s.maxSal>=20000},
+  {id:'cto',d:'보통',n:'CTO가 되기',f:(s,e)=>e==='r_cto'||(s.track==='mgr'&&s.lv>=5),now:s=>s.track==='mgr'&&s.lv>=5},
+  {id:'found',d:'어려움',n:'내 회사 세우기',f:s=>s.hist.some(h=>h.tier==='founder'),now:s=>s.hist.some(h=>h.tier==='founder')},
+  {id:'rich',d:'보통',n:'10억 원 남기기',f:s=>wealth(s)>=100000},
+  {id:'family',d:'보통',n:'결혼해서 아이 키우기',f:s=>!!(s.partner&&s.partner.married&&s.flags.kid),now:s=>!!(s.partner&&s.partner.married&&s.flags.kid)},
+  {id:'ninety',d:'보통',n:'아흔까지 살기',f:s=>s.age>=90},
+  {id:'loyal',d:'쉬움',n:'한 회사에서 15년 일하기',f:s=>s.hist.some(h=>h.tier!=='free'&&h.tier!=='founder'&&(h.to==null?s.age:h.to)-h.from>=15),now:s=>s.hist.some(h=>h.tier!=='free'&&h.tier!=='founder'&&(h.to==null?s.age:h.to)-h.from>=15)},
+  {id:'hit',d:'어려움',n:'개인 프로젝트 대박 내기',f:s=>!!s.flags.projHit,now:s=>!!s.flags.projHit},
+  {id:'fire',d:'매우 어려움',n:'일찍 경제적 자유 얻기',f:(s,e)=>e==='fire'},
+  {id:'neka',d:'보통',n:'네카라쿠배에 들어가기',f:s=>s.hist.some(h=>h.tier==='neka'),now:s=>s.hist.some(h=>h.tier==='neka')}
+];
+function pickGoals(seed){ const R=mkR((seed^0x9e3779b9)>>>0),p=GOALS.slice(),o=[]; while(o.length<3)o.push(p.splice(R.int(0,p.length-1),1)[0]); return o; }
 function badgesOf(s,e){ return BADGES.filter(b=>b.f(s,e)).map(b=>b.n); }
 function why(s,e){
   const R=[],t=s.tr,G=n=>s.gifts.some(g=>g.n===n),st=t.endSt||s.st,V=k=>Math.round(st[k]);
@@ -2049,13 +2082,13 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
+if(typeof module!=='undefined')module.exports={GOALS,pickGoals,RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
 
 </script>
 <script>
 'use strict';
-const RAR={"r_ic":28.3,"r_cto":20.6,"r_mgr":9.1,"r_us":8,"burnout":7.1,"health":6.4,"never":5.9,"fire":5,"civil":3.4,"exit":3.1,"r_none":1.5,"chicken":0.6,"teacher":0.6,"r_free":0.4};
-const VER="di5xhf";
+const RAR={"r_ic":28.5,"r_cto":20.2,"r_mgr":8.9,"r_us":8.5,"burnout":7.3,"never":6.2,"health":6.1,"fire":4.9,"civil":3.4,"exit":3,"r_none":1.4,"chicken":0.6,"r_free":0.6,"teacher":0.5};
+const VER="gwy9je";
 let rec=null,beatNo=0;
 const store={get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(_){ return null; } },set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(_){} },del(k){ try{ localStorage.removeItem(k); }catch(_){} }};
 const $=id=>document.getElementById(id);
@@ -2251,24 +2284,38 @@ async function openCard(e,B){
 function begin(sd,from){
   const seed=(typeof sd==='number'?sd:(Math.random()*4294967296))>>>0;
   const recent=[...new Set([].concat(...(store.get('sad.recent')||[])))];
-  S=newLife(seed);S.recent=new Set(recent);it=life(S);it.next();beatNo=0;store.del('sad.save');
+  const hs=store.get('sad.heir'),heir=(!from&&hs&&GIFT.some(g=>g.n===hs.n))?hs.n:null;
+  if(heir)store.del('sad.heir');
+  S=newLife(seed,{heir});S.recent=new Set(recent);it=life(S);it.next();beatNo=0;store.del('sad.save');
   peers=[1,2,3,4].map(k=>{ const p=newLife((seed+k*9973)>>>0); p.birthYear=S.birthYear; p.autoPlan=true; const g=life(p); let r=g.next(),n=0;
     while(!r.done&&n++<5000){ r=r.value.t==='choice'?g.next(Math.floor(Math.random()*r.value.opts.length)):g.next(); }
     return {name:p.name,region:p.region,ending:p.ending,devYears:p.devYears,age:p.age,last:p.hist.length?p.hist[p.hist.length-1].co:null}; });
-  rec={v:VER,seed,ans:[],plans:[],peers,from:from||null,recent};
+  rec={v:VER,seed,ans:[],plans:[],peers,from:from||null,recent,heir,goal:null};
   $('birthDl').innerHTML=[['이름',S.name],['성별',S.gender],['출생 연도',S.birthYear+'년'],['출생지','대한민국 '+S.region],['아버지',S.parents.dad],['어머니',S.parents.mom],['가정 형편',FAM[S.fam].n],['집안 분위기',S.parents.mood],['집안 체질',S.parents.body]]
     .map((r,i)=>i===0?`<dt><label for="nameIn">이름</label></dt><dd><input id="nameIn" type="text" maxlength="8" autocomplete="off" value="${esc(r[1])}" aria-describedby="nameHelp"><small id="nameHelp">직접 고쳐 쓸 수 있습니다 (8자까지)</small></dd>`:`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('');
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
   const fx=d=>Object.keys(d).map(k=>`<span class="${d[k]>0?'up':'dn'}">${BL[k]} ${d[k]>0?'+':'−'}${Math.abs(d[k])}</span>`).join('');
-  $('giftBox').innerHTML='<h3>타고난 것</h3><ul>'+S.gifts.map(g=>`<li><b class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}</b><small>${esc(g.d)}</small></li>`).join('')+'</ul><h3>부모에게 받은 것</h3><ul>'+S.parents.notes.map(n=>`<li><span>${esc(n.t)}</span><small class="chips">${fx(n.d)||'<span>돈 감각</span>'}</small></li>`).join('')+`<li><span>물려받을 재력</span><small>${['기대하기 어렵다. 오히려 부모님을 도와야 한다','거의 없다','결혼할 때 조금 보태 주신다','결혼과 독립을 넉넉히 도와주신다','평생의 든든한 뒷배가 된다'][S.fam]}</small></li></ul>`;
+  $('giftBox').innerHTML='<h3>타고난 것</h3><ul>'+S.gifts.map(g=>`<li><b class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}${g.inh?' <span class="inh">지난 생에서 물려받음</span>':''}</b><small>${esc(g.d)}</small></li>`).join('')+'</ul><h3>부모에게 받은 것</h3><ul>'+S.parents.notes.map(n=>`<li><span>${esc(n.t)}</span><small class="chips">${fx(n.d)||'<span>돈 감각</span>'}</small></li>`).join('')+`<li><span>물려받을 재력</span><small>${['기대하기 어렵다. 오히려 부모님을 도와야 한다','거의 없다','결혼할 때 조금 보태 주신다','결혼과 독립을 넉넉히 도와주신다','평생의 든든한 뒷배가 된다'][S.fam]}</small></li></ul>`;
   $('peerTxt').innerHTML='같은 해에 태어난 네 사람도 각자의 삶을 시작합니다. '+peers.map(p=>`<b>${esc(p.name)}</b>(${p.region})`).join(', ')+'. 이들의 결말은 마지막에 함께 보여 드립니다.';
+  const gs=pickGoals(seed);selGoal=null;
+  const drawGoals=()=>{ $('goalOpts').innerHTML=gs.map(g=>`<button class="opt" role="radio" aria-checked="${selGoal===g.id}" data-id="${g.id}"><span>${esc(g.n)}</span><small>난이도 ${g.d}</small></button>`).join('')+`<button class="opt" role="radio" aria-checked="${selGoal===null}" data-id=""><span>목표 없이 산다</span><small>흘러가는 대로</small></button>`; };
+  drawGoals();
+  $('goalOpts').onclick=ev=>{ const b=ev.target.closest('.opt'); if(b){ selGoal=b.dataset.id||null; drawGoals(); } };
   show(['birth']);$('birth').scrollTop=0;paint();
+}
+let selGoal=null;
+function goalLine(){
+  const g=rec&&rec.goal&&GOALS.find(x=>x.id===rec.goal),el=$('goalLine');
+  if(!g){ el.classList.add('hidden'); return; }
+  const done=g.now&&g.now(S);
+  el.innerHTML=`<span>이번 생 목표</span><b>${esc(g.n)}</b><i class="${done?'ok':''}">${done?'이뤘다':g.now?'진행 중':'마지막에 판정'}</i>`;
+  el.classList.remove('hidden');
 }
 function renderTraits(){
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
   const fx=d=>Object.keys(d).map(k=>`${BL[k]} ${d[k]>0?'+':'−'}${Math.abs(d[k])}`).join(' · ');
   $('traitSum').innerHTML=S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'}${esc(g.n)}</span>`).join(' ');
-  $('traitList').innerHTML=S.gifts.map(g=>`<li><span class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}</span><small>${esc(g.d)}</small></li>`).join('')
+  $('traitList').innerHTML=S.gifts.map(g=>`<li><span class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}${g.inh?' <span class="inh">물려받음</span>':''}</span><small>${esc(g.d)}</small></li>`).join('')
     +`<li class="par"><span>${esc(S.parents.dad)} 아버지 · ${esc(S.parents.mom)} 어머니</span><small>${esc(S.parents.mood)} · ${esc(S.parents.body)} · 가정 형편 ${FAM[S.fam].n}</small></li>`
     +S.parents.notes.filter(n=>Object.keys(n.d).length).map(n=>`<li><span>${esc(n.t)}</span><small>${fx(n.d)}</small></li>`).join('');
   $('traits').open=WIDE.matches;
@@ -2276,7 +2323,7 @@ function renderTraits(){
 function live(){
   const nm=($('nameIn')?$('nameIn').value:'').replace(/\s+/g,' ').trim().slice(0,8);
   if(nm)S.name=nm;
-  rec.name=S.name;
+  rec.name=S.name;rec.goal=selGoal;
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
@@ -2293,6 +2340,7 @@ function hud(){
   $('monTxt').textContent=(S.job?`연봉 ${payStr(S.job)} · `:'')+`자산 ${won(wealth(S))}`;
   sprite($('ava'),look(S),frame);
   syncPanel();
+  goalLine();
   $('stats').innerHTML=statList().map(([k,l,x])=>{ const v=Math.round(x); const low=(k==='health'||k==='mental'||k==='love')&&v<30; return `<div class="stat"><span>${l}<i>${v}</i></span><div class="bar${low?' low':''}"><u style="width:${v}%"></u></div></div>`; }).join('');
   const g=$('guide');
   if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'){
@@ -2349,7 +2397,7 @@ function preview(nOpts){
   for(let i=0;i<nOpts;i++){
     const G={};
     for(let k=0;k<K;k++){
-      const s=newLife(rec.seed),g=life(s);s.name=rec.name;s.recent=new Set(rec.recent||[]);g.next();
+      const s=newLife(rec.seed,{heir:rec.heir}),g=life(s);s.name=rec.name;s.recent=new Set(rec.recent||[]);g.next();
       let ai=0,pi=0,a,cnt=0,r;
       while(cnt<beatNo){
         while(pi<rec.plans.length&&rec.plans[pi][0]<=cnt){ Object.assign(s.plan,rec.plans[pi][1]);pi++; }
@@ -2391,8 +2439,8 @@ function preview(nOpts){
 }
 /* 저장해 둔 인생을 이어서 한다 */
 function resume(d){
-  S=newLife(d.seed);if(d.name)S.name=d.name;S.recent=new Set(d.recent||[]);it=life(S);it.next();beatNo=0;peers=d.peers;
-  rec={v:VER,seed:d.seed,name:S.name,ans:[],plans:[],peers:d.peers,from:d.from||null,recent:d.recent||[]};
+  S=newLife(d.seed,{heir:d.heir});if(d.name)S.name=d.name;S.recent=new Set(d.recent||[]);it=life(S);it.next();beatNo=0;peers=d.peers;
+  rec={v:VER,seed:d.seed,name:S.name,ans:[],plans:[],peers:d.peers,from:d.from||null,recent:d.recent||[],heir:d.heir||null,goal:d.goal||null};
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
@@ -2479,6 +2527,7 @@ function finish(e){
   const nw=addDex(e.id,B);
   const W=why(S,e.id),M=keyMoments(S,3);
   const nwN=nw.e.length+nw.b.length+nw.g.length+nw.r.length;
+  const gl=rec.goal&&GOALS.find(x=>x.id===rec.goal),gok=gl?gl.f(S,e.id):null;
   const rar=RAR[e.id];
   const pr=peers.map(p=>`<li><time>${esc(p.name)}</time><span>${esc(ENDINGS[p.ending].t)}<small>${p.region} 출생 · 개발자 ${p.devYears}년 · 향년 ${p.age}세${p.last?' · 마지막 직장 '+esc(p.last):''}</small></span></li>`).join('');
   const r=mk('result',`
@@ -2492,6 +2541,7 @@ function finish(e){
       <div><span>거친 회사</span><b>${S.hist.length}곳</b></div>
     </div>
     ${rar!=null?`<p class="fine">선택을 무작위로 고른 2만 번의 인생 가운데 이 결말은 ${rar<0.1?'0.1% 미만':rar+'%'}였습니다.</p>`:''}
+    ${gl?`<div class="goalRes ${gok?'ok':''}"><small>이번 생의 목표 · 난이도 ${gl.d}</small><span>${esc(gl.n)} <b class="${gok?'ok':'no'}">${gok?'이뤘다':'이루지 못했다'}</b></span></div>`:''}
     ${W.length?`<h3>왜 이렇게 끝났나</h3><ul class="whyList">${W.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}
     ${M.length?`<h3>결정적 순간들</h3><ul class="moments">${M.map(m=>`<li class="${m.tone}"><time>${m.a}세</time><span>${esc(m.t)}</span></li>`).join('')}</ul>`:''}
     <p class="fine">${esc(deathNote(S))}</p>
@@ -2499,6 +2549,8 @@ function finish(e){
     ${nwN?`<p class="newDex">도감에 새로 담았습니다. <b>${[nw.e.length?'결말 '+nw.e.length:'',nw.b.length?'칭호 '+nw.b.length:'',nw.g.length?'타고난 것 '+nw.g.length:'',nw.r.length?'드문 일 '+nw.r.length:''].filter(Boolean).join(' · ')}</b> · 모두 ${dexCount(loadDex())} / ${DEX_TOTAL()}</p>`:''}
     <h3>이력</h3>
     <ul class="cv"><li><time>학력</time><span>${esc(school)}</span></li><li><time>타고남</time><span>${S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${esc(g.n)}</span>`).join(' · ')}</span></li><li><time>부모</time><span>${esc(S.parents.dad)} · ${esc(S.parents.mom)}<small>${esc(S.parents.mood)} · 가정 형편 ${FAM[S.fam].n}</small></span></li><li><time>가족</time><span>${esc(fam)}</span></li>${cv||'<li><time>경력</time><span>없음</span></li>'}</ul>
+    <h3>다음 생에 물려줄 것</h3>
+    <div class="heir"><p class="fine">하나를 고르면 다음에 새로 태어날 때 그대로 받고 시작합니다. 받은 출생 링크나 오늘의 인생에는 적용되지 않습니다.</p><div class="opts" id="heirOpts" role="radiogroup" aria-label="다음 생에 물려줄 것"></div></div>
     <h3>같은 해에 태어난 네 사람</h3>
     <ul class="cv">${pr}</ul>
     <div class="row"><button class="ghost" id="btnCard">결과 카드</button><button class="ghost" id="btnCopy">요약 복사</button></div>
@@ -2509,9 +2561,14 @@ function finish(e){
   store.del('sad.save');
   const rl=store.get('sad.recent')||[]; rl.unshift(seenKeys(S)); store.set('sad.recent',rl.slice(0,3));
   const recs=store.get('sad.records')||[];
-  recs.unshift({name:S.name,by:S.birthYear,age:S.age,end:e.title,dev:S.devYears,w:Math.round(wealth(S)),sal:S.maxSal,b:B,g:S.gifts.map(g=>g.n)});
+  recs.unshift({name:S.name,by:S.birthYear,age:S.age,end:e.title,dev:S.devYears,w:Math.round(wealth(S)),sal:S.maxSal,b:B,g:S.gifts.map(g=>g.n),goal:gl?{n:gl.n,ok:gok}:null});
   store.set('sad.records',recs.slice(0,50));
   paint();
+  let heirSel=null;
+  const drawHeir=()=>{ $('heirOpts').innerHTML=S.gifts.map(g=>`<button class="opt" role="radio" aria-checked="${heirSel===g.n}" data-n="${esc(g.n)}"><span class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}</span><small>${esc(g.d)}</small></button>`).join('')+`<button class="opt" role="radio" aria-checked="${heirSel===null}" data-n=""><span>물려주지 않는다</span><small>다음 생은 완전히 새로</small></button>`; };
+  drawHeir();
+  $('heirOpts').onclick=ev=>{ const b=ev.target.closest('.opt'); if(!b)return; heirSel=b.dataset.n||null; if(heirSel)store.set('sad.heir',{n:heirSel}); else store.del('sad.heir'); drawHeir(); };
+  store.del('sad.heir');
   $('btnAgain').onclick=()=>begin();
   $('btnHall2').onclick=()=>hall('dex');
   $('btnCopy').onclick=e2=>copyText(summaryText(e,B),e2.currentTarget,'요약 복사');
@@ -2556,6 +2613,8 @@ function startUI(){
   $('startBtns').innerHTML=(ok?`<button class="primary" id="btnResume">이어 하기 · ${esc(sv.name)} ${sv.age}세</button><button class="ghost" id="btnStart">새로 태어나기</button>`:'<button class="primary" id="btnStart">태어나기</button>')+(recs.length?`<button class="link" id="btnHall">지난 인생 ${recs.length}개 · 도감 ${dexCount(loadDex())} / ${DEX_TOTAL()}</button>`:'');
   $('btnStart').onclick=()=>begin();
   if(inviteSeed!=null)$('btnInvite').onclick=()=>{ const sd=inviteSeed; try{ history.replaceState(null,'',location.pathname+location.search); }catch(_){ try{ location.hash=''; }catch(__){} } begin(sd,'link'); };
+  const hs=store.get('sad.heir');
+  if(hs&&hs.n)$('startBtns').insertAdjacentHTML('afterbegin',`<p class="fine">다음 생에 물려받을 것 · <b>${esc(hs.n)}</b></p>`);
   $('startBtns').insertAdjacentHTML('beforeend',`<button class="link" id="btnToday">오늘의 인생 · ${todayKey()}에는 모두가 같은 조건으로 태어납니다</button>`);
   $('btnToday').onclick=()=>begin(todaySeed(),'today');
   if(ok)$('btnResume').onclick=()=>resume(sv);
@@ -2568,7 +2627,7 @@ function hall(tab){
   $('hallT').textContent=hallTab==='rec'?'지난 인생':'도감';
   $('hallList').classList.toggle('hidden',hallTab!=='rec');$('dex').classList.toggle('hidden',hallTab!=='dex');
   if(hallTab==='dex')$('dex').innerHTML=dexHTML();
-  $('hallList').innerHTML=recs.map(r=>`<li><span><b>${esc(r.name)}</b> · ${r.by}–${r.by+r.age} · 향년 ${r.age}세<small>${esc(r.end)} · 개발자 ${r.dev}년 · 최고 연봉 ${r.sal?won(r.sal):'없음'} · 남긴 자산 ${won(r.w)}</small>${r.b&&r.b.length?`<span class="badges">${r.b.map(x=>`<span>${esc(x)}</span>`).join('')}</span>`:''}</span></li>`).join('')||'<li><span>아직 끝까지 살아 본 인생이 없습니다.</span></li>';
+  $('hallList').innerHTML=recs.map(r=>`<li><span><b>${esc(r.name)}</b> · ${r.by}–${r.by+r.age} · 향년 ${r.age}세<small>${esc(r.end)} · 개발자 ${r.dev}년 · 최고 연봉 ${r.sal?won(r.sal):'없음'} · 남긴 자산 ${won(r.w)}${r.goal?` · 목표 "${esc(r.goal.n)}" ${r.goal.ok?'이룸':'못 이룸'}`:''}</small>${r.b&&r.b.length?`<span class="badges">${r.b.map(x=>`<span>${esc(x)}</span>`).join('')}</span>`:''}</span></li>`).join('')||'<li><span>아직 끝까지 살아 본 인생이 없습니다.</span></li>';
   $('btnHallClear').textContent='기록 지우기';$('btnHallClear').dataset.arm='';
   if(!$('hall').classList.contains('hidden'))return;
   show(['hall']);$('hall').scrollTop=0;
