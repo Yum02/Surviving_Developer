@@ -157,7 +157,7 @@ h1 em{font-style:normal;color:var(--stamp)}
 /* 선택지 결과 예상 */
 .odds{display:flex;flex-direction:column;gap:1px;margin-top:4px;font-size:12px;line-height:1.45;color:var(--muted)}
 .odds b{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;margin-right:6px;color:var(--ink)}
-.odds .g{color:var(--good)} .odds .b{color:var(--bad)}
+.odds .g{color:var(--good)} .odds .b{color:var(--bad)} .odds .g.soft{color:var(--muted)}
 /* 시작 화면 버튼, 기록실 */
 .startBtns{display:flex;flex-direction:column;gap:8px}
 .startBtns .ghost{padding:12px 10px}
@@ -1013,7 +1013,7 @@ const TEEN=[
      else yield beat(s,'친구는 다른 팀을 구했다. 시험은 평소만큼 봤다.','n',{study:3,network:-1}); }},
   {g:function*(s){ const i=yield ch('용돈이 늘 모자란다.',[{l:'주말에 아르바이트를 한다',h:'돈과 사회 경험'},{l:'아껴 쓴다',h:''}]);
      if(i===0)yield beat(s,'패스트푸드점에서 일했다. 주문 화면이 불편해서 속으로 고치고 싶었다.','n',{money:200,study:-2,network:2});
-     else yield beat(s,'매점을 끊었다.','n',{}); },c:s=>s.age>=16}
+     else yield beat(s,'매점을 끊었다. 통장에 돈이 조금씩 쌓였다.','n',{money:60}); },c:s=>s.age>=16}
 ];
 const UNIV=[
   ['조별 과제 조장이 됐다. 팀원 한 명은 발표 날까지 연락이 닿지 않았다.','bad',{mental:-3,network:1}],
@@ -1095,7 +1095,7 @@ const EV2=[
     if(i===0){ if(s.R.chance(.4+s.st.skill/200))yield beat(s,'성능 측정 결과를 들고 갔다. 상대가 먼저 "이게 맞네요"라고 했다.','good',{skill:3,network:3});
                else yield beat(s,'회의는 세 번 더 열렸고 사이는 틀어졌다.','bad',{network:-5,mental:-3}); }
     else if(i===1)yield beat(s,'양보했다. 반년 뒤 그 설계 때문에 둘이 같이 야근했다.','n',{network:2,mental:-2});
-    else yield beat(s,'팀장끼리 정리했다. 결과는 반반이었다.','n',{}); }},
+    else yield beat(s,'팀장끼리 정리했다. 결과는 반반이었다. 덕분에 그 주는 내 일에 집중했다.','n',{skill:2}); }},
  {id:'leave',w:s=>2.5,cd:12,c:1,*run(s){ const i=yield ch('연차가 열닷새나 남았다.',[{l:'길게 여행을 간다',h:'돈은 들지만 제대로 쉰다'},{l:'안 쓰고 수당으로 받는다',h:''},{l:'하루씩 나눠 쓴다',h:''}]);
     if(i===0)yield beat(s,'열흘 동안 노트북 없이 지냈다. 돌아오니 메신저에 쌓인 글이 천이백 개였다.','good',{mental:10,health:3,money:-400});
     else if(i===1){ const m=Math.round(s.job.sal*.04); yield beat(s,`연차 수당 ${won(m)}을 받았다. 통장은 웃고 몸은 울었다.`,'n',{money:m,mental:-4,health:-2}); }
@@ -1107,19 +1107,19 @@ const EV2=[
     const i=yield ch('연봉 협상 시즌이 왔다.',[{l:'근거를 들어 강하게 요구한다',h:'통하면 크게 오른다'},{l:'회사 제시안을 받아들인다',h:''}]);
     if(i===0){ if(s.R.chance(p)){ s.job.sal=Math.round(s.job.sal*1.08); yield beat(s,`작년 성과를 숫자로 정리해 갔다. 연봉이 ${won(s.job.sal)}이 됐다.`,'good',{mental:4}); }
                else yield beat(s,'"회사 사정이 어렵다"는 답이 돌아왔다. 분위기만 어색해졌다.','bad',{network:-3,mental:-3}); }
-    else{ s.job.sal=Math.round(s.job.sal*1.02); yield beat(s,'서명하는 데 30초가 걸렸다.','n',{}); } }},
+    else{ s.job.sal=Math.round(s.job.sal*1.02); yield beat(s,'서명하는 데 30초가 걸렸다. 얼굴 붉힐 일이 없어 마음은 편했다.','n',{mental:3}); } }},
  {id:'tip',w:s=>s.money>1500?3:0,cd:8,c:1,*run(s){ const amt=Math.round(Math.min(s.money*.3,20000));
     const i=yield ch(`동료가 귓속말을 했다. "이 종목은 무조건 갑니다." 여윳돈 ${won(amt)}쯤은 넣을 수 있다.`,[{l:'넣는다',h:'대박 아니면 쪽박'},{l:'흘려듣는다',h:''}]);
-    if(i===1){ yield beat(s,'흘려들었다. 그 종목이 어떻게 됐는지는 일부러 찾아보지 않았다.','n',{}); return; }
+    if(i===1){ yield beat(s,'흘려들었다. 그 종목이 어떻게 됐는지는 일부러 찾아보지 않았다. 잠은 잘 잤다.','n',{mental:3}); return; }
     if(s.R.chance(.3)){ const g=Math.round(amt*(1+s.R()*1.5)); yield beat(s,`정말로 갔다. ${won(g)}을 벌었다. 그 동료는 그 뒤로 말이 더 많아졌다.`,'good',{money:g,mental:5}); }
     else{ const l=Math.round(amt*.6); yield beat(s,`석 달 만에 반 토막이 났다. ${won(l)}을 잃었다. 그 동료는 휴가를 갔다.`,'bad',{money:-l,mental:-5}); } }},
  {id:'gig',w:s=>4,cd:7,c:1,*run(s){ const i=yield ch('지인이 "간단한 홈페이지" 하나만 만들어 달라고 한다.',[{l:'돈을 받고 만든다',h:''},{l:'그냥 만들어 준다',h:''},{l:'정중히 거절한다',h:''}]);
     if(i===0)yield beat(s,'견적을 말하자 지인이 잠시 조용해졌다. 그래도 계약서를 쓰고 만들었다.','n',{money:300,mental:-2});
-    else if(i===1)yield beat(s,'수정 요청이 반년 동안 이어졌다. "간단한"은 없다는 걸 배웠다.','bad',{network:4,mental:-5});
+    else if(i===1)yield beat(s,'수정 요청이 반년 동안 이어졌다. "간단한"은 없다는 걸 배웠다. 덕분에 결제 기능까지 붙여 봤다.','n',{network:4,mental:-5,skill:2});
     else yield beat(s,'거절했다. 명절에 조금 어색했다.','n',{mental:1,network:-2}); }},
  {id:'folks',w:s=>s.age>=36&&!s.flags.parentGone?3:0,cd:9,c:1,*run(s){ const i=yield ch('부모님이 편찮으시다는 연락을 받았다.',[{l:'휴가를 내고 곁을 지킨다',h:''},{l:'병원비를 보내고 일을 계속한다',h:''}]);
     if(i===0)yield beat(s,'병실에서 노트북을 켜지 않았다. 부모님이 "바쁜데 뭐 하러 왔냐"면서도 좋아하셨다.','n',{mental:3,money:-300,network:-1});
-    else yield beat(s,'송금 완료 화면을 오래 봤다.','n',{money:-800,mental:-5}); }}
+    else yield beat(s,'송금 완료 화면을 오래 봤다. 맡은 일은 일정대로 끝냈다.','n',{money:-800,mental:-5,rep:3}); }}
 ];
 const OLD2=[
   ['동창회에서 "그때 네가 만든 반 홈페이지" 이야기가 나왔다.','good',{mental:3}],
@@ -1172,15 +1172,16 @@ function* meet(s){
     {l:'솔직하게 고백한다',h:'빠르다 · 차일 수도 있다'},
     {l:'천천히 가까워진다',h:'오래 걸린다 · 성공하기 쉽다'},
     {l:'마음을 접는다',h:''}]);
-  if(j===2){ yield beat(s,`${J(c.name,'와')}는 좋은 지인으로 남았다.`,'n',{network:1}); return; }
+  if(j===2){ yield beat(s,`${J(c.name,'와')}는 좋은 지인으로 남았다. 가끔 안부를 묻는 사이가 됐다.`,'n',{network:3}); return; }
   const base=(j===0?.38:.58)+s.st.mental/500+s.st.network/500+(s.st.charm-40)/250;
   if(R.chance(clamp(base,.1,.9))){
     s.partner={name:c.name,d:c.d,trait:c.trait,love:j===0?58:66,yrs:0,married:false,wait:0};
     yield beat(s,j===0?`떨리는 목소리로 고백했다. ${J(c.name,'는')} 한참 웃더니 "나도"라고 했다.`:`석 달 동안 점심을 같이 먹었다. 어느 날 ${J(c.name,'가')} 먼저 손을 잡았다.`,'good',{mental:10});
   } else yield beat(s,j===0?`${J(c.name,'는')} 미안하다고 했다. 집에 오는 길이 유난히 길었다.`:`천천히 다가가는 사이, ${c.name}에게 다른 사람이 생겼다.`,'bad',{mental:-6});
 }
-function* breakup(s,txt){
+function* breakup(s,txt,ex){
   const p=s.partner;if(!p)return;
+  if(ex&&!p.married){ s.exes=(s.exes||0)+1;s.partner=null; yield beat(s,(txt||`${J(p.name,'와')} 헤어졌다. 함께 쓰던 구독 서비스를 정리하는 데 한참이 걸렸다.`)+' '+ex[0],'n',Object.assign({mental:-6},ex[1])); return; }
   s.exes=(s.exes||0)+1;s.partner=null;
   if(p.married){ const m=Math.round(Math.max(0,s.money)*.3); s.flags.married=0;s.flags.divorced=1;
     yield beat(s,txt||`${J(p.name,'와')} 오래 이야기한 끝에 각자의 길을 가기로 했다. 서류에 도장을 찍고 나오니 날이 맑았다.`,'bad',{mental:-14,money:-m}); }
@@ -1190,27 +1191,27 @@ const LOVE=[
   {g:function*(s){ const p=s.partner;const i=yield ch(p.married?`${J(p.name,'와')}의 결혼기념일이 다가온다.`:`${J(p.name,'와')} 사귄 기념일이 다가온다.`,[{l:'직접 만든 웹페이지를 선물한다',h:'개발자다운 선물'},{l:'근사한 식당을 예약한다',h:''},{l:'바빠서 그냥 넘어간다',h:''}]);
      if(i===0){ lv(s,s.st.skill>35?9:3); yield beat(s,s.st.skill>35?`둘의 사진이 흐르는 페이지를 만들었다. ${J(p.name,'는')} 주소를 즐겨찾기에 넣었다.`:'페이지가 휴대폰에서 깨져 보였다. 그래도 마음은 전해졌다.','good',{skill:1,mental:3}); }
      else if(i===1){ lv(s,7); yield beat(s,'코스 요리가 나오는 동안 휴대폰을 뒤집어 두었다.','good',{money:-40,mental:4}); }
-     else{ lv(s,-12); yield beat(s,`${J(p.name,'는')} 괜찮다고 했다. 괜찮지 않은 얼굴이었다.`,'bad',{mental:-3}); } }},
+     else{ lv(s,-12); yield beat(s,`${J(p.name,'는')} 괜찮다고 했다. 괜찮지 않은 얼굴이었다. 그날 밤 밀린 일은 끝냈고, 선물값은 굳었다.`,'n',{mental:-3,skill:2,money:30}); } }},
   {g:function*(s){ const p=s.partner;const i=yield ch(p.married?`야근 때문에 ${J(p.name,'와')} 함께하기로 한 저녁을 세 번 연속 걸렀다. 오늘도 일이 터졌다.`:`야근 때문에 ${J(p.name,'와')}의 데이트를 세 번 연속 미뤘다. 오늘도 일이 터졌다.`,[{l:'일을 넘기고 달려간다',h:''},{l:'미안하다고 연락하고 남는다',h:''}]);
      if(i===0){ lv(s,8); yield beat(s,p.married?'음식이 식기 전에 집에 도착했다. 다음 날 회사 분위기는 조금 싸늘했다.':'식당 문 닫기 십 분 전에 도착했다. 다음 날 회사 분위기는 조금 싸늘했다.','good',{network:-2,mental:3}); }
-     else{ lv(s,-10); yield beat(s,'답장은 "알겠어" 한마디였다.','bad',{mental:-3}); } },c:s=>!!s.job},
+     else{ lv(s,-10); yield beat(s,'답장은 "알겠어" 한마디였다. 장애는 내 손으로 막았고, 팀장이 그걸 기억했다.','n',{mental:-3,rep:3}); } },c:s=>!!s.job},
   {g:function*(s){ const p=s.partner;const i=yield ch(`${J(p.name,'와')} 크게 다퉜다.`,[{l:'먼저 사과한다',h:''},{l:'누가 옳은지 끝까지 따진다',h:''},{l:'며칠 시간을 둔다',h:''}]);
      if(i===0){ lv(s,6); yield beat(s,'사과하고 나니 무엇 때문에 싸웠는지도 흐릿해졌다.','good',{mental:1}); }
-     else if(i===1){ lv(s,-11); yield beat(s,'논쟁에서는 이겼다. 그리고 졌다.','bad',{mental:-3}); }
+     else if(i===1){ lv(s,-11); yield beat(s,'논쟁에서는 이겼다. 속은 잠깐 시원했다. 그리고 졌다.','n',{mental:2}); }
      else if(s.R.chance(.5)){ lv(s,3); yield beat(s,'사흘 뒤 둘이 동시에 연락했다.','n',{}); }
-     else{ lv(s,-7); yield beat(s,'시간을 두는 사이 서운함이 더 자랐다.','bad',{mental:-2}); } }},
+     else{ lv(s,-7); yield beat(s,'시간을 두는 사이 서운함이 더 자랐다. 그 사이 밀린 일은 끝냈다.','n',{mental:-2,skill:2}); } }},
   {g:function*(s){ const p=s.partner;const i=yield ch(`${J(p.name,'가')} 회사 일로 많이 지쳐 있다.`,[{l:'말없이 끝까지 들어 준다',h:''},{l:'해결책을 정리해서 알려 준다',h:''}]);
      if(i===0){ lv(s,8); yield beat(s,`두 시간 동안 고개만 끄덕였다. ${J(p.name,'가')} "고마워"라고 했다.`,'good',{mental:2}); }
-     else{ lv(s,-4); yield beat(s,'세 가지 대안을 표로 정리해 보여 줬다. 해결책을 물은 게 아니었다는 걸 뒤늦게 알았다.','bad',{}); } }},
+     else{ lv(s,-3); yield beat(s,'세 가지 대안을 표로 정리해 보여 줬다. 해결책을 물은 게 아니었다는 걸 뒤늦게 알았다. 그래도 표에 적은 방법 하나는 다음 달에 실제로 쓰였다.','n',{mental:2}); } }},
   {g:function*(s){ const p=s.partner;const i=yield ch(`미국에서 일하게 되면서 ${J(p.name,'와')} 떨어져 지내게 됐다.`,[{l:'함께 가자고 한다',h:''},{l:'장거리 연애를 이어 간다',h:''},{l:'여기서 정리한다',h:''}]);
      if(i===0){ if(s.R.chance(.35+p.love/200)){ p.us=1;lv(s,10); yield beat(s,`${J(p.name,'가')} 며칠을 고민하더니 함께 가겠다고 했다. 공항에서 짐이 두 배가 됐다.`,'good',{mental:8}); }
                 else yield* breakup(s,`${J(p.name,'는')} 자기 삶이 여기에 있다고 했다. 공항에서 마지막으로 인사했다.`); }
-     else if(i===1){ p.us=1;lv(s,-14); yield beat(s,'열일곱 시간의 시차 속에서 서로의 아침과 밤에 통화했다.','n',{mental:-3}); }
-     else yield* breakup(s); },c:s=>!!(s.job&&s.job.us)&&!s.partner.us&&!s.partner.married},
+     else if(i===1){ p.us=1;lv(s,-14); yield beat(s,'열일곱 시간의 시차 속에서 서로의 아침과 밤에 통화했다. 혼자 지내는 저녁에는 영어 회화 모임에 나갔다.','n',{mental:-3,english:4}); }
+     else yield* breakup(s,null,['미국 생활에만 마음을 쏟기로 했다.',{english:4}]); },c:s=>!!(s.job&&s.job.us)&&!s.partner.us&&!s.partner.married},
   {g:function*(s){ const p=s.partner;const i=yield ch(`미국에서 일하게 됐다. ${J(p.name,'와')} 어떻게 지낼지 정해야 한다.`,[{l:'가족이 함께 미국으로 간다',h:'낯선 곳에서 같이 다시 시작한다'},{l:'당분간 혼자 가서 일한다',h:'떨어져 지내는 만큼 애정이 식는다'}]);
      p.us=1;
      if(i===0){ lv(s,6); yield beat(s,s.flags.kid?`온 가족이 이민 가방을 쌌다. 아이는 새 학교 첫날 한마디도 못 하고 돌아왔지만, 석 달 뒤에는 통역을 해 줬다.`:`${J(p.name,'는')} 하던 일을 정리하고 함께 비행기에 올랐다. 낯선 동네에서 둘이 장 보는 법부터 다시 배웠다.`,'good',{mental:6,money:-1500}); }
-     else{ lv(s,-16); yield beat(s,`혼자 먼저 건너갔다. 시차 때문에 ${J(p.name,'와')}의 통화는 늘 한쪽이 졸린 시간이었다.`,'n',{mental:-6,money:-600}); } },c:s=>!!(s.job&&s.job.us)&&!s.partner.us&&s.partner.married},
+     else{ lv(s,-16); yield beat(s,`혼자 먼저 건너갔다. 시차 때문에 ${J(p.name,'와')}의 통화는 늘 한쪽이 졸린 시간이었다. 퇴근 뒤 시간은 온전히 일과 영어 공부에 썼다.`,'n',{mental:-6,money:-600,skill:3,english:3}); } },c:s=>!!(s.job&&s.job.us)&&!s.partner.us&&s.partner.married},
   {g:function*(s){ const p=s.partner; lv(s,8); yield beat(s,`${J(p.name,'와')} 처음으로 긴 여행을 갔다. 길을 잃은 순간이 제일 재미있었다.`,'good',{mental:6,money:-150}); },c:s=>!s.partner.married},
   {g:function*(s){ const p=s.partner; lv(s,7); yield beat(s,s.flags.kid?'아이를 부모님께 맡기고 오랜만에 둘이서만 여행을 갔다. 대화의 절반은 아이 이야기였다.':`${J(p.name,'와')} 오랜만에 긴 여행을 갔다. 신혼여행 때 찍은 자리에서 같은 자세로 사진을 찍었다.`,'good',{mental:6,money:-250}); },c:s=>s.partner.married&&s.partner.yrs>=3},
   {g:function*(s){ const p=s.partner; lv(s,4); yield beat(s,`${p.name}의 부모님께 인사를 드렸다. "개발자면 컴퓨터도 잘 고치겠네"라는 말을 들었다.`,'n',{}); },c:s=>s.partner.yrs>=2&&!s.partner.married},
@@ -1222,13 +1223,13 @@ const LOVE=[
   {g:function*(s){ const p=s.partner;const i=yield ch('명절이 다가온다. 연휴를 어떻게 보낼까?',[{l:'양가를 모두 찾아뵌다',h:'도리는 다하고 몸은 고단하다'},{l:'둘이서 여행을 간다',h:'부부는 즐겁고 어른들은 서운하다'},{l:'밀린 일을 한다',h:''}]);
      if(i===0){ lv(s,4); yield beat(s,'고속도로에서 여덟 시간을 보냈다. 양가에서 똑같이 "살 좀 쪘네"라는 말을 들었다.','n',{health:-2,network:2}); }
      else if(i===1){ lv(s,9); yield beat(s,`${J(p.name,'와')} 조용한 바닷가에서 연휴를 보냈다. 안부 전화는 조금 길어졌다.`,'good',{mental:7,money:-200}); }
-     else{ lv(s,-9); yield beat(s,`연휴 내내 노트북 앞에 있었다. ${J(p.name,'는')} 혼자 본가에 다녀왔다.`,'bad',{skill:1,mental:-2}); } },c:s=>s.partner.married},
+     else{ lv(s,-9); yield beat(s,`연휴 내내 노트북 앞에 있었다. ${J(p.name,'는')} 혼자 본가에 다녀왔다. 밀린 일은 깔끔하게 끝냈다.`,'n',{skill:3,rep:2,mental:-2}); } },c:s=>s.partner.married},
   {g:function*(s){ const p=s.partner;const i=yield ch(`${J(p.name,'가')} 말했다. "요즘 우리, 한집에 사는데 얼굴 보기가 힘들다."`,[{l:'일주일에 이틀은 저녁을 함께 먹기로 약속한다',h:''},{l:'이번 프로젝트만 끝나면 달라진다고 말한다',h:''}]);
      if(i===0){ lv(s,10); yield beat(s,'화요일과 금요일 저녁은 회의를 잡지 않기로 했다. 달력에 반복 일정으로 넣었다.','good',{mental:4,network:-1}); }
-     else{ lv(s,-10); yield beat(s,'프로젝트는 끝났고, 다음 프로젝트가 시작됐다.','bad',{mental:-2}); } },c:s=>s.partner.married&&!!s.job},
+     else{ lv(s,-10); yield beat(s,'프로젝트는 끝났고, 다음 프로젝트가 시작됐다. 프로젝트 평가만은 좋았다.','n',{mental:-2,rep:3}); } },c:s=>s.partner.married&&!!s.job},
   {g:function*(s){ const p=s.partner;const i=yield ch(`${J(p.name,'가')} 다니던 일을 그만두고 새로운 일에 도전하고 싶다고 한다. 한동안 수입이 줄어든다.`,[{l:'응원하고 생활비를 더 맡는다',h:''},{l:'지금은 때가 아니라고 말린다',h:''}]);
      if(i===0){ lv(s,12); yield beat(s,`${J(p.name,'는')} 일 년 뒤 새 일에 자리를 잡았다. "그때 믿어 줘서 고마웠다"는 말을 들었다.`,'good',{money:-1200,mental:3}); }
-     else{ lv(s,-8); yield beat(s,`${J(p.name,'는')} 알겠다고 했지만, 그 이야기는 가끔 다시 나왔다.`,'n',{}); } },c:s=>s.partner.married&&s.partner.yrs>=4},
+     else{ lv(s,-8); yield beat(s,`${J(p.name,'는')} 알겠다고 했지만, 그 이야기는 가끔 다시 나왔다. 생활비 걱정은 없었다.`,'n',{money:300}); } },c:s=>s.partner.married&&s.partner.yrs>=4},
   {g:function*(s){ const p=s.partner; lv(s,5); yield beat(s,`${J(p.name,'와')} 장을 보다가 서로 같은 과자를 집었다. 오래 같이 살면 입맛도 닮는다.`,'good',{mental:3}); },c:s=>s.partner.married&&s.partner.yrs>=5}
 ];
 function* loveTick(s){
@@ -1251,12 +1252,12 @@ const EV3=[
       const i=yield ch(`${J(p.name,'가')} 먼저 물었다. "우리, 결혼은 언제 해?"`,[{l:'"지금 하자"고 답한다',h:''},{l:'아직 준비가 안 됐다고 답한다',h:'헤어질 수도 있다'}]);
       if(i===0){ p.married=true;s.flags.married=1;lv(s,15); yield cite(beat(s,`그 자리에서 날짜를 잡았다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-5900,network:3}),'wedding'); }
       else if(R.chance(.55))yield* breakup(s,`${J(p.name,'는')} 더 기다릴 수 없다고 했다. 긴 연애가 끝났다.`);
-      else{ p.wait=0;lv(s,-10); yield beat(s,`${J(p.name,'는')} 한숨을 쉬고 조금 더 기다리기로 했다.`,'n',{mental:-3}); }
+      else{ p.wait=0;lv(s,-10); yield beat(s,`${J(p.name,'는')} 한숨을 쉬고 조금 더 기다리기로 했다. 그사이 결혼 자금이 조금 더 모였다.`,'n',{mental:-3,money:200}); }
       return;
     }
     const i=yield ch(`${J(p.name,'와')} 만난 지 ${p.yrs}년. 앞으로를 생각할 때가 됐다.`,[{l:'청혼한다',h:''},{l:'조금 더 만나 본다',h:''},{l:'헤어지자고 한다',h:''}]);
-    if(i===1){ p.wait++;lv(s,-2); yield beat(s,'아직은 지금이 좋다고 생각했다.','n',{}); return; }
-    if(i===2){ yield* breakup(s); return; }
+    if(i===1){ p.wait++;lv(s,-2); yield beat(s,'아직은 지금이 좋다고 생각했다. 서두르지 않으니 마음이 편했다.','n',{mental:3}); return; }
+    if(i===2){ yield* breakup(s,null,['주말이 통째로 내 시간이 됐다. 뜸했던 친구들을 다시 자주 만났다.',{skill:2,network:3}]); return; }
     const j=yield ch('어떻게 청혼할까?',[{l:'직접 만든 프로그램으로 깜짝 청혼한다',h:'실력이 받쳐 줘야 한다'},{l:'조용한 식당에서 담백하게 말한다',h:''},{l:'여행지에서 반지를 꺼낸다',h:'돈이 든다'}]);
     let bonus=0,txt='';
     if(j===0){ if(s.st.skill>=45){ bonus=.1;txt=`화면에 "나와 결혼해 줄래?"가 떴다. ${J(p.name,'는')} "예" 버튼을 눌렀다.`; } else{ bonus=-.1;txt='결정적인 순간에 화면이 멈췄다. 결국 말로 했다.'; } }
@@ -1283,21 +1284,21 @@ const EV3=[
     else yield beat(s,'가방 속 노트북은 끝까지 조용했다. 축가를 따라 불렀다.','good',{mental:4}); }},
  {id:'lend',w:s=>s.money>2000?2:0,cd:12,c:1,*run(s){ const amt=Math.round(Math.min(s.money*.2,5000));
     const i=yield ch(`오랜 친구가 창업 자금 ${won(amt)}을 빌려 달라고 한다.`,[{l:'빌려준다',h:''},{l:'미안하다고 거절한다',h:''}]);
-    if(i===1){ yield beat(s,'거절했다. 한동안 연락이 뜸해졌다.','n',{network:-3}); return; }
+    if(i===1){ yield beat(s,'거절했다. 한동안 연락이 뜸해졌다. 그래도 밤잠을 설치지는 않았다.','n',{network:-3,mental:3}); return; }
     if(s.R.chance(.35))yield beat(s,`친구의 가게가 자리를 잡았다. 빌려준 돈에 이자까지 얹어 돌려받았다.`,'good',{money:Math.round(amt*.2),network:6,mental:4});
     else yield beat(s,`친구의 사업은 1년을 넘기지 못했다. ${won(amt)}은 돌아오지 않았다.`,'bad',{money:-amt,mental:-5}); }},
  {id:'pet',w:s=>!s.flags.pet&&s.age>=26?2.5:0,cd:99,c:1,*run(s){ const i=yield ch('유기 동물 입양 공고에서 눈을 뗄 수가 없다.',[{l:'고양이를 입양한다',h:''},{l:'강아지를 입양한다',h:''},{l:'책임질 자신이 없어 참는다',h:''}]);
     if(i===0){ s.flags.pet='cat'; yield beat(s,'고양이가 왔다. 첫날부터 키보드 위에 앉았다.','good',{mental:8,money:-100}); }
     else if(i===1){ s.flags.pet='dog'; yield beat(s,'강아지가 왔다. 아침저녁 산책이 일과가 됐다.','good',{mental:7,health:4,money:-150}); }
-    else yield beat(s,'공고 페이지를 닫았다.','n',{}); }},
+    else yield beat(s,'공고 페이지를 닫았다. 대신 한 달에 한 번 보호소 봉사를 나갔다.','n',{mental:3}); }},
  {id:'petlife',w:s=>s.flags.pet?4:0,cd:3,*run(s){ yield beat(s,s.flags.pet==='cat'?R_(s,['고양이가 키보드를 밟아 운영 서버에 "ㅁㄴㅇㄹ"이 입력될 뻔했다.','화상 회의 중에 고양이 꼬리가 화면을 가로질렀다. 회의 분위기가 풀렸다.']):R_(s,['강아지 산책 덕분에 하루 만 보를 걷는다.','퇴근하면 강아지가 현관에서 기다린다. 야근이 싫어졌다.']),'good',{mental:4,health:s.flags.pet==='dog'?2:0}); }},
  {id:'cut',w:s=>s.lv>=2?3:0,cd:9,c:1,*run(s){ const i=yield ch('일정이 빠듯하자 상사가 테스트를 건너뛰고 배포하자고 한다.',[{l:'위험하다고 반대한다',h:''},{l:'시키는 대로 한다',h:''}]);
     if(i===0){ if(s.R.chance(.55))yield beat(s,'하루를 더 받아 테스트를 돌렸다. 결제 오류 하나를 잡아냈다.','good',{network:4,skill:2});
                else yield beat(s,'"일정은 누가 책임지나"라는 말을 들었다. 평가 면담에서 그 일이 다시 나왔다.','bad',{network:-4,mental:-3}); }
     else if(s.R.chance(.45))yield beat(s,'배포 한 시간 만에 장애가 났다. 사후 보고서는 내가 썼다.','bad',{mental:-6,skill:2});
-    else yield beat(s,'아무 일도 일어나지 않았다. 이번에는.','n',{mental:-1}); }},
+    else yield beat(s,'아무 일도 일어나지 않았다. 이번에는. 일정은 하루 당겨졌다.','n',{mental:-1,rep:2}); }},
  {id:'senior',w:s=>s.devYears>=3&&s.job&&!s.job.us&&s.job.tier!=='startup'?2.5:0,cd:10,c:1,*run(s){ const i=yield ch('퇴사한 선배가 자기 스타트업으로 오라고 한다. 연봉은 비슷하고 스톡옵션을 준다고 한다.',[{l:'선배를 믿고 옮긴다',h:''},{l:'지금 회사에 남는다',h:''}]);
-    if(i===0){ hire(s,'startup',{raise:1}); s.flags.stock=1; yield beat(s,`${s.job.co}에 합류했다. 사번은 7번이다.`,'good',{mental:5,network:3}); }
+    if(i===0){ hire(s,'startup',{raise:1}); s.flags.stock=1; yield beat(s,`${s.job.co}에 일곱 번째 직원으로 합류했다. 사무실에는 아직 의자보다 모니터가 많았다.`,'good',{mental:5,network:3}); }
     else yield beat(s,'고맙지만 사양했다. 선배는 "마음 바뀌면 연락해"라고 했다.','n',{network:1}); }},
  {id:'club',w:s=>!s.flags.club?3:0,cd:99,c:1,*run(s){ s.flags.club=1; const i=yield ch('사내 동호회 가입 권유를 받았다.',[{l:'러닝 동호회',h:'체력'},{l:'직장인 밴드',h:'멘탈과 인맥'},{l:'가입하지 않는다',h:''}]);
     if(i===0)yield beat(s,'퇴근 후 한강을 뛰었다. 10킬로미터 대회 완주 메달을 모니터 옆에 걸었다.','good',{health:6,network:3});
@@ -1330,7 +1331,7 @@ TEEN.push(
   {g:function*(s){ const i=yield ch('같은 반에 좋아하는 아이가 생겼다.',[{l:'용기 내어 고백한다',h:''},{l:'마음에만 담아 둔다',h:''}]);
      if(i===0){ if(s.R.chance(.2+s.st.charm/200))yield beat(s,'사귀게 됐다. 학년이 바뀌며 자연스럽게 멀어졌지만 좋은 기억으로 남았다.','good',{mental:7,study:-2});
                 else{ yield beat(s,'"좋은 친구로 지내자"는 답을 들었다. 사흘 동안 급식이 맛없었다.','bad',{mental:-4}); if(s.R.chance(.5))s.chains.push({id:'crush',step:1,at:s.R.int(29,36),name:s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여'])}); } }
-     else{ yield beat(s,'말하지 못했다. 졸업 앨범을 볼 때마다 가끔 생각난다.','n',{mental:-1}); s.chains.push({id:'crush',step:1,at:s.R.int(29,36),name:s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여'])}); } },c:s=>s.age>=14},
+     else{ yield beat(s,'말하지 못했다. 졸업 앨범을 볼 때마다 가끔 생각난다. 그해 성적은 조금 올랐다.','n',{mental:-1,study:3}); s.chains.push({id:'crush',step:1,at:s.R.int(29,36),name:s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여'])}); } },c:s=>s.age>=14},
   {g:function*(s){ const i=yield ch('동아리를 정해야 한다.',[{l:'코딩 동아리',h:'실력'},{l:'방송부',h:'인맥'},{l:'축구부',h:'체력'}]);
      if(i===0)yield beat(s,'동아리 서버를 직접 꾸렸다. 첫 과제는 급식 알림 프로그램이었다.','good',{skill:5,network:2});
      else if(i===1)yield beat(s,'점심 방송 사연을 읽었다. 전교생이 목소리를 안다.','good',{network:6,mental:2});
@@ -1419,7 +1420,7 @@ KID.push(
      if(i===0){ if(s.R.chance(.6))yield beat(s,'"그만해"라고 말했다. 목소리는 떨렸지만 놀림은 멈췄고, 그 친구와 단짝이 됐다.','good',{network:4,mental:3});
                 else yield beat(s,'편을 들다가 나까지 놀림을 받았다. 그래도 후회하지 않는다.','n',{mental:-2,network:2}); }
      else if(i===1)yield beat(s,'선생님이 조용히 해결해 주셨다. 그 친구가 지우개를 반 잘라 줬다.','good',{network:2,mental:1});
-     else yield beat(s,'고개를 돌렸다. 집에 와서도 그 장면이 자꾸 떠올랐다.','bad',{mental:-3}); },c:s=>s.age>=8},
+     else yield beat(s,'고개를 돌렸다. 집에 와서도 그 장면이 자꾸 떠올랐다. 괜히 엮이지 않아 시험공부는 이어 갔다.','n',{mental:-3,study:2}); },c:s=>s.age>=8},
   {g:function*(s){ const i=yield ch('세뱃돈을 받았다. 어디에 쓸까?',[{l:'저금통에 넣는다',h:''},{l:'게임 아이템을 산다',h:''},{l:'친구들에게 떡볶이를 산다',h:''}]);
      if(i===0)yield beat(s,'저금통이 묵직해졌다. 흔들어 보는 게 취미가 됐다.','n',{money:30,mental:1});
      else if(i===1)yield beat(s,'한정판 아이템을 샀다. 일주일 뒤 더 좋은 게 나왔다.','n',{mental:3});
@@ -1450,30 +1451,30 @@ OLD2.push(
   {g:function*(s){ const i=yield ch('운전면허 갱신 통지서가 왔다. 요즘은 반응이 예전 같지 않다.',[{l:'면허를 반납한다',h:''},{l:'계속 운전한다',h:''}]);
      if(i===0)yield beat(s,'면허를 반납하고 교통 카드를 받았다. 버스 창밖을 구경하는 재미를 알았다.','good',{mental:2,health:1});
      else if(s.R.chance(.3))yield beat(s,'주차장에서 기둥을 긁었다. 그날로 차 열쇠를 서랍에 넣었다.','bad',{mental:-3,money:-100});
-     else yield beat(s,'천천히, 낮에만 운전하기로 했다.','n',{}); },c:s=>s.age>=70},
+     else yield beat(s,'천천히, 낮에만 운전하기로 했다. 장 보러 가는 일은 여전히 혼자 해낸다.','n',{mental:3}); },c:s=>s.age>=70},
   {g:function*(s){ const i=yield ch('은퇴한 개발자들이 모여 작은 프로그램을 만드는 모임이 생겼다.',[{l:'나가서 같이 만든다',h:''},{l:'구경만 한다',h:''}]);
      if(i===0)yield beat(s,'동네 약국 재고 관리 프로그램을 만들었다. 평균 나이 일흔둘의 팀이었다.','good',{mental:6,network:4,skill:2});
      else yield beat(s,'뒷자리에서 구경했다. 손이 근질거렸다.','n',{mental:1}); }}
 );
 const EV4=[
  {id:'tf',w:s=>s.lv>=2&&s.job.tier!=='si'?3:0,cd:8,c:1,*run(s){ const i=yield ch('회사가 신사업 전담팀을 꾸린다. 성공하면 주목받고, 실패하면 팀이 사라진다.',[{l:'지원한다',h:''},{l:'지금 팀에 남는다',h:''}]);
-    if(i===1){ yield beat(s,'남기로 했다. 전담팀 소식은 사내 게시판으로 들었다.','n',{}); return; }
+    if(i===1){ yield beat(s,'남기로 했다. 전담팀 소식은 사내 게시판으로 들었다. 지금 팀에서 내 자리는 더 단단해졌다.','n',{rep:3}); return; }
     if(s.R.chance(.35+s.st.skill/250)){ s.job.sal=Math.round(s.job.sal*1.07); yield beat(s,'반년을 갈아 넣은 신사업이 출시 첫 달에 목표를 넘겼다. 대표가 전사 회의에서 팀 이름을 불렀다.','good',{skill:6,network:6,health:-4}); }
     else yield beat(s,'신사업은 1년 만에 접혔다. 원래 팀으로 돌아오니 내 자리에 다른 사람이 앉아 있었다.','bad',{skill:4,mental:-6,health:-3}); }},
  {id:'credit',w:s=>3,cd:9,c:1,*run(s){ const i=yield ch('내가 밤새 고친 문제를 동료가 자기 성과처럼 보고했다.',[{l:'회의에서 사실을 바로잡는다',h:''},{l:'이번에는 넘어간다',h:''}]);
     if(i===0){ if(s.R.chance(.6))yield beat(s,'커밋 기록을 화면에 띄웠다. 회의실이 조용해졌고, 팀장이 고개를 끄덕였다.','good',{network:2,mental:4});
                else yield beat(s,'사실은 밝혔지만 "팀워크를 해친다"는 말을 들었다.','bad',{network:-4,mental:-2}); }
-    else yield beat(s,'넘어갔다. 그 동료는 다음 분기에도 같은 일을 했다.','bad',{mental:-5}); }},
+    else yield beat(s,'넘어갔다. 그 동료는 다음 분기에도 같은 일을 했다. 팀 분위기만은 지켰다.','n',{mental:-5,network:2}); }},
  {id:'wfh',w:s=>!s.flags.wfh?3:0,cd:99,c:1,*run(s){ const i=yield ch('회사가 근무 방식을 고르라고 한다.',[{l:'재택근무',h:'멘탈과 체력 · 인맥은 덜 쌓인다'},{l:'사무실 출근',h:'인맥 · 출퇴근이 고되다'}]);
     s.flags.wfh=i===0?'home':'office';
     if(i===0)yield beat(s,'집에 책상을 새로 들였다. 점심을 직접 차려 먹기 시작했다.','good',{mental:5,health:3,network:-3});
     else yield beat(s,'매일 출근했다. 복도에서 나눈 잡담이 뜻밖의 기회로 이어졌다.','n',{network:5,health:-2}); }},
  {id:'conf2',w:s=>s.st.english>=30?3:0,cd:8,c:1,*run(s){ const i=yield ch('해외 개발자 컨퍼런스 참가 기회가 생겼다. 경비의 절반은 내가 내야 한다.',[{l:'간다',h:''},{l:'온라인 중계로 본다',h:''}]);
     if(i===0)yield beat(s,'발표장 복도에서 책으로만 보던 개발자와 이야기를 나눴다. 명함 대신 깃허브 주소를 주고받았다.','good',{english:5,network:6,skill:3,money:-250});
-    else yield beat(s,'새벽에 중계를 보다가 잠들었다.','n',{skill:1}); }},
+    else yield beat(s,'새벽에 중계를 보다가 잠들었다. 경비는 들지 않았고, 다시 보기로 발표 두 개는 챙겨 봤다.','n',{skill:2}); }},
  {id:'esop',w:s=>['big','neka','mid','usb'].includes(s.job.tier)&&s.money>1000?2.5:0,cd:10,c:1,*run(s){ const amt=Math.round(Math.min(s.money*.3,8000));
     const i=yield ch(`우리사주 청약 공지가 떴다. ${won(amt)}까지 살 수 있다.`,[{l:'산다',h:'회사를 믿는다'},{l:'사지 않는다',h:''}]);
-    if(i===1){ yield beat(s,'사지 않았다. 월급과 투자를 한 바구니에 담지 않기로 했다.','n',{}); return; }
+    if(i===1){ yield beat(s,'사지 않았다. 월급과 투자를 한 바구니에 담지 않기로 했다. 마음은 편했다.','n',{mental:3}); return; }
     const r=-.4+s.R()*1.1; const g=Math.round(amt*r);
     yield beat(s,g>=0?`보호예수가 풀릴 즈음 주가가 올랐다. ${won(g)}을 벌었다.`:`보호예수 기간 동안 주가가 내렸다. ${won(-g)}을 잃었다.`,g>=0?'good':'bad',{money:g,mental:g>=0?3:-4}); }},
  {id:'home',w:s=>!s.flags.home&&s.age>=24?3:0,cd:99,c:1,*run(s){ s.flags.home=1; const i=yield ch('이사할 때가 됐다. 어디에 살까?',[{l:'회사 근처의 좁은 집',h:'출퇴근이 짧다 · 월세가 비싸다'},{l:'멀지만 넓은 집',h:'집은 쾌적하다 · 출퇴근이 길다'}]);
@@ -1534,7 +1535,7 @@ const CHAIN={
   *crush(s,c){
     if(s.partner||s.age>45)return;
     const i=yield ch(`동창회에서 ${J(c.name,'를')} 다시 만났다. 학창 시절 말하지 못했던 그 사람이다.`,[{l:'연락처를 묻는다',h:''},{l:'인사만 하고 돌아선다',h:''}]);
-    if(i===1){ yield beat(s,'인사만 하고 돌아섰다. 집에 오는 길에 졸업 앨범이 떠올랐다.','n',{mental:-1}); return; }
+    if(i===1){ yield beat(s,'인사만 하고 돌아섰다. 집에 오는 길에 졸업 앨범이 떠올랐다. 좋은 기억은 좋은 기억으로 두기로 했다.','n',{mental:3}); return; }
     if(s.R.chance(.45+(s.st.charm-40)/200)){
       s.partner={name:c.name,d:'학창 시절 동창',trait:s.R.pick(['calm','art','active','biz','dev']),love:72,yrs:0,married:false,wait:0};
       yield beat(s,`그날 밤 긴 메시지가 왔다. "사실 나도 그때 너 좋아했어." ${J(c.name,'와')} 다시 만나기 시작했다.`,'good',{mental:12});
@@ -1551,14 +1552,14 @@ function* chainTick(s){
 const EV5=[
  {id:'ossLib',w:s=>!s.flags.ossLib&&s.st.skill>=40&&s.age<50?3:0,cd:99,c:1,*run(s){ s.flags.ossLib=1;
     const i=yield ch('주말에 만든 작은 라이브러리가 있다. 세상에 공개할까?',[{l:'오픈소스로 공개한다',h:'반응이 있을지도 모른다'},{l:'혼자 쓴다',h:''}]);
-    if(i===0){ s.chains.push({id:'oss',step:1,at:s.age+1}); yield beat(s,'README를 세 번 고쳐 쓰고 공개 버튼을 눌렀다.','n',{skill:1}); }
-    else yield beat(s,'혼자 쓰기로 했다. 회사 일이 조금 편해졌다.','n',{skill:1}); }},
+    if(i===0){ s.chains.push({id:'oss',step:1,at:s.age+1}); yield beat(s,'README를 세 번 고쳐 쓰고 공개 버튼을 눌렀다. 남이 읽을 코드라 생각하니 정리할 게 많았다.','n',{skill:3}); }
+    else yield beat(s,'혼자 쓰기로 했다. 회사 일이 조금 편해졌다.','n',{skill:2,mental:2}); }},
  {id:'junior',w:s=>!s.flags.junior&&s.lv>=2&&s.age<48?3:0,cd:99,c:1,*run(s){ s.flags.junior=1;
     const name=s.R.w(SUR)+s.R.pick(GIVEN[s.R.chance(.5)?'남':'여']);
     const i=yield ch(`신입 ${name}의 사수가 됐다. 내 일도 밀려 있다.`,[{l:'시간을 들여 꼼꼼히 가르친다',h:'당장은 내 일이 밀린다'},{l:'알아서 하게 둔다',h:''}]);
     s.chains.push({id:'junior',step:1,at:s.age+s.R.int(5,8),good:i===0,name});
     if(i===0)yield beat(s,`${J(name,'와')} 매일 삼십 분씩 코드를 같이 읽었다. 석 달 뒤 ${J(name,'가')} 첫 기능을 혼자 배포했다.`,'good',{network:3,mental:1,skill:-1});
-    else yield beat(s,`${J(name,'는')} 혼자 문서를 뒤지며 버텼다. 내 일정은 지켰다.`,'n',{skill:1}); }},
+    else yield beat(s,`${J(name,'는')} 혼자 문서를 뒤지며 버텼다. 내 일정은 지켰다.`,'n',{skill:2,rep:2}); }},
  {id:'callback',w:s=>3,cd:3,*run(s){ yield* draw(s,'c',CALLBACK); }}
 ];
 /* 타고난 것과 출생을 다시 불러오는 사건 */
@@ -1734,14 +1735,14 @@ const LIFE_Y=[
   ['친구 결혼식 축의금 액수를 두고 단톡방에서 의견이 셋으로 갈렸다.','n',{money:-20}],
   {g:function*(s){ yield* pickOut(s,'대학 동기가 "확실한 투자처"라며 모임에 같이 가자고 한다.',
     [{l:'따라가 본다',h:''},{l:'거절한다',h:''}],
-    [[[6,'설명회장에 들어서자마자 다단계라는 걸 알았다. 음료만 마시고 나왔다.','n',{}],[4,'들을수록 그럴듯했다. 조금 넣었다. 돌려받지 못했다.','bad',{money:-500,mental:-4}]],
-     [[10,'거절했다. 그 동기와는 그 뒤로 연락이 뜸해졌다.','n',{network:-1}]]]); }},
+    [[[6,'설명회장에 들어서자마자 다단계라는 걸 알았다. 음료만 마시고 나왔다. 사기 수법 하나는 확실히 배웠다.','n',{mental:2}],[4,'들을수록 그럴듯했다. 조금 넣었다. 돌려받지 못했다.','bad',{money:-500,mental:-4}]],
+     [[10,'거절했다. 그 동기와는 그 뒤로 연락이 뜸해졌다. 그 돈은 그대로 통장에 있다.','n',{network:-1,mental:3}]]]); }},
   ['첫 차를 샀다. 중고였지만 시동을 걸 때마다 웃음이 났다.','good',{money:-800,mental:4},s=>s.money>1500],
   ['주말마다 가던 본가에 한 달에 한 번 가게 됐다.','n',{}],
   {g:function*(s){ yield* pickOut(s,'동생이 대학 등록금이 모자란다며 연락했다.',
     [{l:'보태 준다',h:''},{l:'사정을 말하고 거절한다',h:''}],
     [[[10,'통장에서 돈이 빠져나갔다. 동생이 졸업식 사진을 보내왔다.','good',{money:-400,mental:4}]],
-     [[6,'동생이 장학금을 받게 됐다며 괜찮다고 했다.','n',{}],[4,'동생이 학자금 대출을 받았다. 명절에 서로 그 얘기를 꺼내지 않았다.','bad',{mental:-3}]]]); },c:s=>s.fam<=2},
+     [[6,'동생이 장학금을 받게 됐다며 괜찮다고 했다. 마음이 놓였다.','n',{mental:3}],[4,'동생이 학자금 대출을 받았다. 명절에 서로 그 얘기를 꺼내지 않았다.','bad',{mental:-3}]]]); },c:s=>s.fam<=2},
   ['운전면허 학원에서 S자 코스를 세 번 떨어졌다. 알고리즘 문제보다 어려웠다.','n',{}],
   {g:function*(s){ yield* pickOut(s,'헬스장 직원이 PT 30회 등록을 권한다.',
     [{l:'등록한다',h:''},{l:'혼자 해 보겠다고 한다',h:''}],
@@ -1766,7 +1767,7 @@ const LIFE_M=[
   {g:function*(s){ yield* pickOut(s,'부모님이 고향 집을 정리하고 가까이 오고 싶어 하신다.',
     [{l:'근처에 집을 구해 드린다',h:''},{l:'지금처럼 지내시자고 한다',h:''}],
     [[[7,'주말마다 부모님 댁에서 밥을 먹는다. 마음 한쪽이 놓였다.','good',{mental:5,money:-1500}],[3,'가까이 사니 잔소리도 가까워졌다.','n',{mental:-2,money:-1500}]],
-     [[10,'명절마다 고향에 내려간다. 고속도로에서 보내는 시간이 길어진다.','n',{}]]]); },c:s=>!s.flags.parentGone},
+     [[10,'명절마다 고향에 내려간다. 고속도로에서 보내는 시간이 길어진다. 대신 주말은 온전히 내 것이다.','n',{mental:3}]]]); },c:s=>!s.flags.parentGone},
   ['노안이 왔다. 모니터 글자 크기를 처음으로 키웠다.','n',{},s=>s.age>=42],
   ['오랜만에 대학 동아리 방에 들렀다. 벽에 내가 붙인 스티커가 아직 있었다.','good',{mental:3},s=>s.edu!=null]
 ];
@@ -1781,7 +1782,7 @@ const LIFE_Z=[
   {g:function*(s){ yield* pickOut(s,'쉰이 넘어 대학원 진학을 고민한다.',
     [{l:'진학한다',h:''},{l:'마음만 먹는다',h:''}],
     [[[6,'젊은 동기들 틈에서 석사를 마쳤다. 논문 감사의 글에 가족 이름을 적었다.','good',{skill:4,mental:4,money:-1500}],[4,'첫 학기를 버티지 못하고 휴학했다.','bad',{money:-500,mental:-3}]],
-     [[10,'관련 책을 몇 권 샀다. 책장에 잘 꽂혀 있다.','n',{}]]]); }},
+     [[10,'관련 책을 몇 권 샀다. 책장에 잘 꽂혀 있다. 그중 한 권은 끝까지 읽었다.','n',{skill:2}]]]); }},
   ['회사 엘리베이터에서 신입 둘이 나를 "그분"이라고 불렀다.','n',{rep:1}]
 ];
 /* 그해 뉴스: 출생 연도에 따라 겪는 시대가 다르다. 2027년 이후는 게임 속 이야기다 */
@@ -1821,7 +1822,7 @@ KID.push(
 TEEN.push(
   {g:function*(s){ yield* pickOut(s,'학원 숙제를 친구 답안으로 베낄 수 있는 기회가 생겼다.',
     [{l:'베낀다',h:''},{l:'직접 푼다',h:''}],
-    [[[6,'아무 일도 없었다. 다만 시험에 그 문제가 그대로 나왔고, 풀지 못했다.','bad',{study:-3}],[4,'선생님이 똑같은 오답 두 개를 찾아냈다.','bad',{mental:-3,study:-1}]],
+    [[[6,'숙제를 십 분 만에 끝내고 놀았다. 다만 시험에 그 문제가 그대로 나왔고, 풀지 못했다.','n',{mental:3,study:-3}],[4,'선생님이 똑같은 오답 두 개를 찾아냈다.','bad',{mental:-3,study:-1}]],
      [[10,'새벽 한 시까지 붙잡고 풀었다. 다음 날 시험에 그 유형이 나왔다.','good',{study:4,health:-1}]]]); }},
   ['영상 사이트에서 "개발자의 하루" 영상을 봤다. 다들 카페에서 노트북을 펴고 있었다.','n',{}],
   {g:function*(s){ yield* pickOut(s,'친구들이 수학여행 장기자랑에 같이 나가자고 한다.',
@@ -1850,7 +1851,7 @@ OLD2.push(
   {g:function*(s){ yield* pickOut(s,'동네 복지관에서 키오스크 사용법 강의를 맡아 달라고 한다.',
     [{l:'맡는다',h:''},{l:'사양한다',h:''}],
     [[[7,'수강생 한 분이 손 편지를 주셨다.','good',{mental:5,network:3}],[3,'질문에 답하다 목이 쉬었다. 그래도 다음 주에 또 갔다.','n',{health:-1,mental:2}]],
-     [[10,'사양하고 대신 손주에게 같은 걸 가르쳤다.','n',{}]]]); }},
+     [[10,'사양하고 대신 손주에게 같은 걸 가르쳤다. 손주가 엄지를 들어 보였다.','n',{mental:3}]]]); }},
   ['친구들 단톡방 알림이 한 해 사이 절반으로 줄었다.','bad',{mental:-2}],
   {g:function*(s){ const i=yield ch('젊을 때 쓰던 기계식 키보드를 손주가 탐낸다.',[{l:'물려준다',h:''},{l:'아직은 내가 쓴다',h:''}]);
      if(i===0)yield beat(s,'손주가 그 키보드로 첫 코드를 쳤다며 사진을 보냈다.','good',{mental:6});
@@ -1947,7 +1948,8 @@ function* childhood(s){
       art:pk(s,['예술고 디자인과 실기 시험에 붙었다. 합격자 명단을 보고 미술 학원 선생님이 울었다.','예술고에 합격했다. 첫날 사물함에 태블릿부터 넣었다.'])}[code],'good',
       {jasa:{study:4,mental:-2},sci:{study:14,mental:-6},lang:{english:8,study:3},meister:{skill:4},voc:{skill:3,study:-2},art:{charm:5,mental:3}}[code]);
     if(code==='jasa'&&s.fam<=1)yield beat(s,'학비 고지서를 받은 날, 부모님이 늦게까지 이야기를 나누셨다.','n',{mental:-3});
-  } else if(i>0)yield beat(s,`${['','자율형 사립고','과학고','외국어고','마이스터고','특성화고','예술고'][i]} ${i===6?'실기 시험':'입시'}에서 떨어졌다. 일반고에 진학했다.`,'bad',{mental:-3});
+  } else if(i>0)yield beat(s,`${['','자율형 사립고','과학고','외국어고','마이스터고','특성화고','예술고'][i]} ${i===6?'실기 시험':'입시'}에서 떨어졌다. 일반고에 진학했다. ${i===6?'실기를 준비하며 그림 실력은 늘었다.':'입시를 준비하며 공부는 늘었다.'}`,'n',i===6?{mental:-3,charm:3}:{mental:-3,study:3});
+  else yield beat(s,pk(s,['집에서 가까운 일반고에 진학했다. 중학교 친구들 절반이 같은 학교다.','동네 일반고에 들어갔다. 통학 시간이 짧아 아침잠이 늘었다.']),'n',{network:3,mental:2});
 }
 /* 학과: g는 계열(cs 개발 직결, eng 이공계, non 비이공계), gain은 학년마다 오르는 실력 */
 const MAJOR={
@@ -1987,9 +1989,9 @@ function* highschool(s){
     i=yield ch(M?'3학년. 채용 연계 현장실습 시즌이다.':'3학년. 취업반과 진학반 가운데 하나를 골라야 한다.',[
       {l:M?'현장실습으로 일찍 취업한다':'취업반에서 바로 일자리를 찾는다',h:'스무 살에 경력 시작'},
       {l:M?'대학 진학으로 방향을 바꾼다':'특성화고 특별 전형으로 대학에 간다',h:M?'수능 준비는 불리하다':'내신으로 간다 · 한 단계 높은 학교'}]);
-    if(i===0){ s.edu=null;s.major='cs';if(!M)s.flags.voc=1;apply(s,{skill:M?6:4}); yield beat(s,M?'또래들이 수능을 볼 때, 첫 출근 준비를 했다.':'졸업식 다음 주에 첫 출근을 했다. 사원증 사진 속 얼굴이 아직 앳됐다.'); return 'work'; }
+    if(i===0){ s.edu=null;s.major='cs';if(!M)s.flags.voc=1; yield beat(s,M?'또래들이 수능을 볼 때, 첫 출근 준비를 했다.':'졸업식 다음 주에 첫 출근을 했다. 사원증 사진 속 얼굴이 아직 앳됐다.','good',{skill:M?6:4,mental:3}); return 'work'; }
     s.track2='sci';
-    if(M){ apply(s,{study:-8}); yield beat(s,'뒤늦게 수능 공부를 시작했다. 전공 실력은 있지만 국어 지문이 낯설다.'); yield* to(s,18); yield* csat(s); return 'univ'; }
+    if(M){ apply(s,{study:-8}); yield beat(s,'뒤늦게 수능 공부를 시작했다. 전공 실력은 있지만 국어 지문이 낯설다. 먼저 대학에 간 선배들이 공부법을 알려 줬다.','n',{network:3}); yield* to(s,18); yield* csat(s); return 'univ'; }
     const base=s.study+s.fam*1.5+R.norm()*5, tier=Math.min(4,(base>=88?4:base>=70?3:base>=54?2:base>=38?1:0)+1);
     const r=yield* chooseMajor(s,tier,true); s.major=r.k; s.edu=r.t;
     yield beat(s,`${r.note}특성화고 특별 전형으로 ${EDU[s.edu]} ${MAJOR[s.major].n}에 입학했다.`,'good',{mental:5});
@@ -2126,7 +2128,7 @@ function* univBody(s){
       {l:'국비 지원 부트캠프에 들어간다',h:'6개월 뒤 개발자로 지원'},
       {l:'전공을 살려 취업한다',h:'개발과는 다른 인생'},
       {l:'졸업을 미루고 혼자 독학한다',h:'돈은 안 들지만 외롭다'}]);
-    if(i===1){ yield end(s,'never'); return; }
+    if(i===1){ yield beat(s,{design:'디자인 에이전시에 들어갔다. 초봉은 개발자 친구들보다 적었지만, 내가 그린 화면이 매일 세상에 나갔다.',biz:'전공을 살려 일반 기업 기획팀에 들어갔다. 개발자들과 회의할 때 말이 잘 통한다는 소리를 들었다.',hum:'전공을 살려 출판사에 들어갔다. 원고를 넘길 때마다 오타 검사 스크립트를 몰래 돌렸다.'}[s.major]||'전공을 살려 취업했다. 개발과는 다른 길이다.','n',{mental:5,network:3}); yield end(s,'never'); return; }
     if(i===2){ yield* out(s,[[6,pk(s,['한 학기 휴학하고 도서관에서 온라인 강의를 들었다. 깃허브 잔디가 처음으로 초록색이 됐다.','유튜브 강의와 공식 문서로 버텼다. 혼자 만든 할 일 앱이 그럭저럭 돌아갔다.']),'good',{skill:15,mental:-3}],
       [4,'혼자 하다 보니 자꾸 멈췄다. 그래도 같은 처지의 스터디원 둘을 만났다.','n',{skill:10,network:3,mental:-5}]]); s.major='boot'; return; }
     yield beat(s,'하루 열두 시간씩 코드를 쳤다. 수료식 날 포트폴리오 사이트를 겨우 완성했다.','good',{skill:20,mental:-5});
@@ -2146,7 +2148,7 @@ function* univBody(s){
   else if(i===2){
     if(canUS||R.chance(.25)){ yield* to(s,s.age+2);s.flags.usMs=1;s.flags.ms=1;s.flags.opt=3;s.loc='US';
       yield beat(s,'미국에서 석사 과정을 마쳤다. 졸업 후 일할 수 있는 OPT 기간이 주어졌다. 통장은 바닥이다.','good',{skill:14,english:24,money:s.fam>=4?-1000:-7000,network:5}); }
-    else yield beat(s,'어학 점수와 학비의 벽을 넘지 못했다. 국내 취업으로 방향을 돌렸다.','bad',{mental:-4,english:5});
+    else yield beat(s,'어학 점수와 학비의 벽을 넘지 못했다. 국내 취업으로 방향을 돌렸다. 준비하며 늘린 영어는 남았다.','n',{mental:-4,english:5});
   }
   else if(i===3){
     yield* to(s,s.age+1);
@@ -2218,18 +2220,18 @@ function* hunt(s){
   if(R.chance(ps[i])){
     if(CO[t].us&&s.loc==='KR'&&!s.flags.gc){
       if(!visaDraw(s)){ yield cite(beat(s,`${CO[t].label} 최종 합격. 그러나 H-1B 취업비자 추첨에서 떨어졌다. 오퍼는 없던 일이 됐다.`,'bad',{mental:-9}),'h1b'); return; }
-      yield cite(beat(s,'H-1B 취업비자 추첨에 당첨됐다. 실력으로 어쩔 수 없는 관문을 운으로 넘었다.','good'),'h1b');
+      yield cite(beat(s,'H-1B 취업비자 추첨에 당첨됐다. 실력으로 어쩔 수 없는 관문을 운으로 넘었다.','good',{mental:5}),'h1b');
     }
     if(s.loc==='US'&&!CO[t].us){ s.loc='KR';s.flags.usExp=1; }
     hire(s,t);
     yield beat(s,`${s.job.co}에 ${title(s)}로 입사했다. ${HIRE_TXT[t]}`,'good',{mental:8});
   } else {
-    if(newbie&&slump(s)&&!CO[t].us&&R.chance(.5)){ yield cite(beat(s,R.pick(['신입 공고 자체가 거의 없었다. 경력 3년 이상만 뽑는 공고 사이에서 지원할 곳을 찾느라 한 해가 갔다.','AI 도구가 퍼지면서 회사들이 신입 채용을 줄였다는 기사가 연달아 나왔다. 서류 합격 연락이 한 통도 오지 않았다.']),'bad',{mental:-7}),'slump'); return; }
+    if(newbie&&slump(s)&&!CO[t].us&&R.chance(.5)){ yield cite(beat(s,R.pick(['신입 공고 자체가 거의 없었다. 경력 3년 이상만 뽑는 공고 사이에서 지원할 곳을 찾느라 한 해가 갔다.','AI 도구가 퍼지면서 회사들이 신입 채용을 줄였다는 기사가 연달아 나왔다. 서류 합격 연락이 한 통도 오지 않았다.'])+' 그 사이 포트폴리오에 프로젝트를 하나 더 올렸다.','n',{mental:-7,skill:3}),'slump'); return; }
     yield beat(s,R.pick([
       '서류 서른일곱 곳 중 서른다섯 곳에서 떨어졌다. 나머지 두 곳은 코딩 테스트에서 떨어졌다.',
       '최종 면접까지 갔지만 "아쉽게도"로 시작하는 메일을 받았다.',
       '코딩 테스트 마지막 문제에서 시간이 모자랐다. 올해 채용은 끝났다.',
-      '면접관이 "그래서 본인이 직접 한 건 뭐죠?"라고 물었고, 대답이 꼬였다.']),'bad',{mental:-6});
+      '면접관이 "그래서 본인이 직접 한 건 뭐죠?"라고 물었고, 대답이 꼬였다.'])+' '+R.pick(['떨어진 문제는 집에 와서 다시 풀어 봤다.','면접에서 받은 질문을 정리해 두었다.','다음에는 덜 떨 것 같다.']),'n',{mental:-6,skill:2});
     if(s.loc==='US'&&s.flags.opt===0&&!s.flags.gc){ s.loc='KR';s.flags.usExp=1; yield cite(beat(s,'OPT 기간이 끝났다. 한국으로 돌아왔다.','bad',{mental:-5}),'opt'); }
   }
 }
@@ -2289,9 +2291,9 @@ const EV=[
     const t=opts[i];
     if(R.chance(hireP(s,t))){
       if(CO[t].us){ if(!visaDraw(s)){ yield cite(beat(s,'미국 빅테크 최종 합격. 그러나 H-1B 취업비자 추첨에서 떨어졌다. 내년을 기약한다.','bad',{mental:-8}),'h1b'); return; }
-                    yield cite(beat(s,'H-1B 취업비자 추첨에 당첨됐다. 가족에게 미국행을 알렸다.','good'),'h1b'); }
+                    yield cite(beat(s,'H-1B 취업비자 추첨에 당첨됐다. 가족에게 미국행을 알렸다.','good',{mental:5}),'h1b'); }
       hire(s,t,{raise:1.15}); yield beat(s,`${s.job.co}로 이직했다. ${HIRE_TXT[t]}`,'good',{mental:6});
-    } else yield beat(s,'퇴근 후 몰래 본 면접들에서 모두 떨어졌다. 연차 사유를 "개인 사정"이라고 쓴 날들이 무색하다.','bad',{mental:-5}); }},
+    } else yield beat(s,'퇴근 후 몰래 본 면접들에서 모두 떨어졌다. 연차 사유를 "개인 사정"이라고 쓴 날들이 무색하다. 면접 준비로 다시 본 기초는 남았다.','n',{mental:-5,skill:2}); }},
  {id:'omen',w:s=>s.job.tier==='startup'||s.job.tier==='uss'?4:0,cd:4,*run(s){ s.flags.omen=1; yield beat(s,'탕비실 과자 종류가 줄기 시작했다. 대표가 전사 미팅에서 "런웨이"라는 단어를 세 번 말했다.','bad',{mental:-3}); }},
  {id:'stock',w:s=>(s.job.tier==='startup'||s.job.tier==='uss')&&!s.flags.stock?5:0,cd:1,*run(s){ s.flags.stock=1; yield beat(s,'스톡옵션 계약서에 서명했다. 대박일지 휴지 조각일지는 아무도 모른다.','n',{mental:3}); }},
  {id:'ipo',w:s=>s.flags.stock&&s.job.yrs>=3?2.6:0,cd:4,*run(s){ const R=s.R,x=R();
@@ -2305,7 +2307,7 @@ const EV=[
     const i=yield ch('건강검진 결과지에 빨간 글씨가 여럿이다. 의사는 "이대로면 큰일 납니다"라고 했다.',[
       {l:'생활을 바꾼다',h:'야근을 줄이고 운동을 시작한다'},{l:'바쁜 것만 끝나면 챙긴다',h:''}]);
     if(i===0)yield beat(s,'술자리를 줄이고 매일 걸었다. 석 달 뒤 재검 수치가 돌아왔다.','good',{health:14,network:-2});
-    else yield beat(s,'바쁜 것은 끝나지 않았다.','bad',{health:-8}); }},
+    else yield beat(s,'바쁜 것은 끝나지 않았다. 프로젝트만은 일정대로 끝났다.','n',{health:-8,rep:3}); }},
  {id:'burn',w:s=>s.st.mental<32?16:0,cd:2,c:1,*run(s){ const R=s.R;
     const i=yield ch('일요일 저녁마다 가슴이 답답하다. 모니터 앞에서 멍하니 앉아 있는 시간이 늘었다.',[
       {l:'휴직한다',h:'돈은 줄지만 회복한다'},{l:'버틴다',h:'지나갈 수도, 무너질 수도'},{l:'환경을 바꾼다',h:'덜 바쁜 곳으로 이직'}]);
@@ -2317,7 +2319,7 @@ const EV=[
  {id:'ai1',w:s=>s.birthYear+s.age>=2023&&!s.flags.ai?9:0,cd:99,c:1,*run(s){ s.flags.ai=1;
     const i=yield ch(pk(s,['회사에 AI 코딩 도구가 도입됐다.','팀장이 전원에게 AI 코딩 도구 계정을 나눠 줬다. 써 볼까?','옆자리 동료가 AI 도구로 하루 만에 끝낸 일을 나는 사흘 걸려 했다.']),[{l:'적극적으로 쓴다',h:'일하는 방식을 바꾼다'},{l:'믿지 않는다',h:'내 손이 더 정확하다'}]);
     if(i===0){ s.flags.aiUser=1; yield beat(s,'반복 작업을 AI에 넘기고 설계에 시간을 쓰기 시작했다. 리뷰할 코드가 두 배로 늘었다.','good',{skill:6}); }
-    else yield beat(s,'자동 완성을 꺼 두었다. 동료들의 배포 속도가 눈에 띄게 빨라졌다.','n',{skill:1,mental:-2}); }},
+    else yield beat(s,'자동 완성을 꺼 두었다. 동료들의 배포 속도가 눈에 띄게 빨라졌다. 대신 내 코드는 한 줄 한 줄 다 설명할 수 있다.','n',{skill:3,mental:-2}); }},
  {id:'ai2',w:s=>s.birthYear+s.age>=2027&&s.flags.ai&&s.lv<=2?3:0,cd:6,*run(s){
     if(s.flags.aiUser)yield beat(s,'AI가 단순 구현을 대신하면서 신입 채용이 동결됐다. AI를 잘 다루는 쪽에 속해 있어 다행이다.','n',{mental:-2,skill:2});
     else{ s.flags.omen=1; yield beat(s,'AI가 단순 구현을 대신하면서 팀 정원이 줄었다. 내 업무가 하나둘 자동화 목록에 오른다.','bad',{mental:-7}); } }},
@@ -2332,7 +2334,7 @@ const EV=[
  {id:'house',w:s=>s.loc==='KR'&&wealth(s)>=30000&&!s.flags.house?7:0,cd:99,c:1,*run(s){ s.flags.house=1;
     const i=yield ch('모은 돈에 대출을 보태면 수도권 아파트를 살 수 있다.',[{l:'산다',h:'자산 대부분이 집에 묶인다'},{l:'전세로 계속 산다',h:''}]);
     if(i===0){ s.flags.own=1; yield beat(s,'등기부등본에 이름이 올랐다. 그리고 30년짜리 대출이 생겼다.','good',{mental:9,money:-25000}); }
-    else yield beat(s,'2년마다 이사 견적을 받는 삶을 이어 갔다.','n'); }},
+    else yield beat(s,'2년마다 이사 견적을 받는 삶을 이어 갔다. 대출이 없으니 마음은 가벼웠다.','n',{mental:3}); }},
  {id:'transfer',w:s=>s.job.tier==='fkr'&&s.job.yrs>=2&&s.st.skill>=60&&s.st.english>=48?8:0,cd:5,c:1,*run(s){
     const i=yield ch('본사 팀에서 미국으로 옮겨 올 생각이 있는지 물어 왔다. 주재원 비자라 추첨도 없다.',[{l:'미국으로 간다',h:'연봉은 뛰고, 삶은 통째로 바뀐다'},{l:'한국에 남는다',h:''}]);
     if(i===0){ const nm=s.job.co.replace(' 코리아',''); hire(s,'usb',{name:nm,raise:2}); s.tr.transfer=1; s.flags.l1=1; yield beat(s,`${nm} 본사로 옮겼다. 이민 가방 세 개에 한국 생활을 접어 넣었다.`,'good',{mental:4,english:6}); }
@@ -2348,14 +2350,14 @@ const EV=[
  {id:'usapply',w:s=>!s.job.us&&s.st.english>=55&&s.st.skill>=60&&s.age<=45?7:0,cd:4,c:1,*run(s){ const R=s.R;
     const p=clamp(hireP(s,'usb')+.15,0,.9);
     const i=yield ch('미국 빅테크 리크루터가 영어로 메일을 보내 왔다.',[{l:'면접 과정을 시작한다',h:pH(p)+' · 그다음엔 비자 추첨'},{l:'답장하지 않는다',h:''}]);
-    if(i===1){ yield beat(s,'메일은 보관함으로 갔다.','n'); return; }
+    if(i===1){ yield beat(s,'메일은 보관함으로 갔다. 지금 회사 일에 더 집중했다.','n',{rep:2}); return; }
     if(!R.chance(p)){ yield beat(s,'화상 면접 다섯 번 중 네 번째에서 떨어졌다. 시스템 설계 질문에서 말이 막혔다.','bad',{mental:-4,english:2,skill:2}); return; }
     if(!visaDraw(s)){ yield cite(beat(s,'최종 합격했지만 H-1B 취업비자 추첨에서 떨어졌다. 당첨률은 해마다 다르고, 실력과는 상관이 없다.','bad',{mental:-8}),'h1b'); return; }
     hire(s,'usb',{raise:2}); yield beat(s,`합격, 그리고 비자 추첨 당첨. ${s.job.co}로 간다. ${HIRE_TXT.usb}`,'good',{mental:8}); }},
  {id:'found',w:s=>s.st.skill>=58&&s.st.network>=45&&s.money>=4000&&s.age>=27&&s.age<=46&&!s.job.us?2.5:0,cd:8,c:1,*run(s){
     const i=yield ch('믿을 만한 동료가 함께 창업하자고 한다. 아이템은 그럴듯하다.',[{l:'회사를 나와 창업한다',h:'대부분은 실패한다'},{l:'거절한다',h:''}]);
     if(i===0){ hire(s,'founder',{name:(s.name.length>1?s.name.slice(1):s.name)+'랩스'}); apply(s,{money:-3000}); yield beat(s,`${s.job.co}를 세웠다. 사무실은 공유 오피스 4인실, 직함은 대표 겸 개발자 겸 고객센터.`,'good',{mental:6}); }
-    else yield beat(s,'거절했다. 몇 년 뒤 그 회사 소식을 뉴스에서 볼지, 못 볼지는 모른다.','n'); }},
+    else yield beat(s,'거절했다. 몇 년 뒤 그 회사 소식을 뉴스에서 볼지, 못 볼지는 모른다. 월급날은 어김없이 왔다.','n',{mental:3}); }},
  {id:'flav',w:s=>6,cd:0,*run(s){ yield* draw(s,'w',WORK); }},
  {id:'flav2',w:s=>3,cd:0,*run(s){ yield* draw(s,'w',WORK); }},
  {id:'corp',w:s=>11,cd:0,*run(s){ const k=s.job.us?'us':s.job.tier; if(CORP[k])yield* draw(s,'q'+k,CORP[k]); }}
@@ -2498,8 +2500,8 @@ if(typeof module!=='undefined')module.exports={MAJOR,HS_NAME,majorName,GOALS,pic
 </script>
 <script>
 'use strict';
-const RAR={"r_ic":27.1,"r_cto":18.4,"r_us":9.9,"r_mgr":9.2,"burnout":8.5,"never":5.7,"health":5.5,"fire":5.5,"civil":3.6,"exit":3,"r_none":1.7,"teacher":0.6,"chicken":0.6,"r_free":0.5};
-const VER="1i0h6wb";
+const RAR={"r_ic":27.6,"r_cto":20.1,"r_us":10.1,"r_mgr":8.5,"burnout":6.1,"never":5.8,"fire":5.7,"health":5.7,"civil":3.6,"exit":3.2,"r_none":1.7,"teacher":0.8,"r_free":0.6,"chicken":0.6,"r_founder":0};
+const VER="omz881";
 let rec=null,beatNo=0;
 const store={get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(_){ return null; } },set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(_){} },del(k){ try{ localStorage.removeItem(k); }catch(_){} }};
 const $=id=>document.getElementById(id);
@@ -2847,13 +2849,25 @@ function preview(nOpts){
     for(const gr of Object.values(G)){
       if(gr.res.sp||gr.res.tone==='bad')continue;
       const parts=gr.res.f.filter(f=>GOODF.includes(f));
-      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||v<1)continue; parts.push(`${LBL[x]} +${x==='money'?won(v):Math.round(v)}`); }
+      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||v<.5)continue; parts.push(`${LBL[x]} +${x==='money'?won(v):Math.max(1,Math.round(v))}`); }
       if(!parts.length)continue;
       const key=parts.join(' · ');
       (shown[key]||(shown[key]={n:0,txt:key})).n+=gr.n;
     }
-    const gs=Object.values(shown).sort((x,y)=>y.n-x.n).slice(0,3);
-    out.push(gs.map(g=>{ const pc=g.n>=K?'':`<b>${Math.max(5,Math.round(g.n/K*20)*5)}%</b>`; return `<span class="g">${pc}${g.txt}</span>`; }).join(''));
+    let gs=Object.values(shown).sort((x,y)=>y.n-x.n).slice(0,3);
+    /* 수치로 보일 이득이 없을 때(능력치가 이미 가득 찼거나, 결과가 다음 선택·다음 해로 이어질 때)는 흐름만 알려 준다 */
+    if(!gs.length){
+      const fb={};
+      for(const gr of Object.values(G)){
+        const r=gr.res; let tx=null;
+        if(r.sp==='later')tx='결과는 해가 바뀐 뒤에 나온다';
+        else if(r.sp==='다음 선택으로 이어진다')tx='다음 선택으로 이어진다';
+        else if(!r.sp&&r.tone!=='bad'&&!r.f.some(f=>f==='헤어진다'||f==='회사를 나온다'))tx=r.tone==='good'?'좋은 쪽으로 풀린다':'큰 탈 없이 지나간다';
+        if(tx)(fb[tx]||(fb[tx]={n:0,txt:tx,soft:1})).n+=gr.n;
+      }
+      gs=Object.values(fb).sort((x,y)=>y.n-x.n).slice(0,2);
+    }
+    out.push(gs.map(g=>{ const pc=g.n>=K?'':`<b>${Math.max(5,Math.round(g.n/K*20)*5)}%</b>`; return `<span class="g${g.soft?' soft':''}">${pc}${g.txt}</span>`; }).join(''));
   }
   return out;
 }

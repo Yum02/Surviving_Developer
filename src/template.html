@@ -157,7 +157,7 @@ h1 em{font-style:normal;color:var(--stamp)}
 /* 선택지 결과 예상 */
 .odds{display:flex;flex-direction:column;gap:1px;margin-top:4px;font-size:12px;line-height:1.45;color:var(--muted)}
 .odds b{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;margin-right:6px;color:var(--ink)}
-.odds .g{color:var(--good)} .odds .b{color:var(--bad)}
+.odds .g{color:var(--good)} .odds .b{color:var(--bad)} .odds .g.soft{color:var(--muted)}
 /* 시작 화면 버튼, 기록실 */
 .startBtns{display:flex;flex-direction:column;gap:8px}
 .startBtns .ghost{padding:12px 10px}
@@ -748,13 +748,25 @@ function preview(nOpts){
     for(const gr of Object.values(G)){
       if(gr.res.sp||gr.res.tone==='bad')continue;
       const parts=gr.res.f.filter(f=>GOODF.includes(f));
-      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||v<1)continue; parts.push(`${LBL[x]} +${x==='money'?won(v):Math.round(v)}`); }
+      for(const x in gr.sum){ const v=gr.sum[x]/gr.n; if(!LBL[x]||v<.5)continue; parts.push(`${LBL[x]} +${x==='money'?won(v):Math.max(1,Math.round(v))}`); }
       if(!parts.length)continue;
       const key=parts.join(' · ');
       (shown[key]||(shown[key]={n:0,txt:key})).n+=gr.n;
     }
-    const gs=Object.values(shown).sort((x,y)=>y.n-x.n).slice(0,3);
-    out.push(gs.map(g=>{ const pc=g.n>=K?'':`<b>${Math.max(5,Math.round(g.n/K*20)*5)}%</b>`; return `<span class="g">${pc}${g.txt}</span>`; }).join(''));
+    let gs=Object.values(shown).sort((x,y)=>y.n-x.n).slice(0,3);
+    /* 수치로 보일 이득이 없을 때(능력치가 이미 가득 찼거나, 결과가 다음 선택·다음 해로 이어질 때)는 흐름만 알려 준다 */
+    if(!gs.length){
+      const fb={};
+      for(const gr of Object.values(G)){
+        const r=gr.res; let tx=null;
+        if(r.sp==='later')tx='결과는 해가 바뀐 뒤에 나온다';
+        else if(r.sp==='다음 선택으로 이어진다')tx='다음 선택으로 이어진다';
+        else if(!r.sp&&r.tone!=='bad'&&!r.f.some(f=>f==='헤어진다'||f==='회사를 나온다'))tx=r.tone==='good'?'좋은 쪽으로 풀린다':'큰 탈 없이 지나간다';
+        if(tx)(fb[tx]||(fb[tx]={n:0,txt:tx,soft:1})).n+=gr.n;
+      }
+      gs=Object.values(fb).sort((x,y)=>y.n-x.n).slice(0,2);
+    }
+    out.push(gs.map(g=>{ const pc=g.n>=K?'':`<b>${Math.max(5,Math.round(g.n/K*20)*5)}%</b>`; return `<span class="g${g.soft?' soft':''}">${pc}${g.txt}</span>`; }).join(''));
   }
   return out;
 }
