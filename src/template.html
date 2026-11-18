@@ -650,7 +650,7 @@ function hud(){
   if(S.over)j=ENDINGS[S.ending].t;
   else if(S.job)j=`${S.job.co} · ${title(S)}`;
   else if(S.hist.length||S.huntYrs>0)j=S.loc==='US'?'구직 중 (미국)':'구직 중';
-  else j=S.age<7?'미취학':S.age<19?'학생':'학생·준비생';
+  else j=S.age<7?'미취학':S.age<16?'학생':(S.edu==null&&S.age<19&&S.hs)?`${HS_NAME[S.hs]} ${Math.min(3,S.age-15)}학년`:(S.edu!=null&&S.age<27)?`${EDU[S.edu]} ${majorName(S)}`.trim():'학생·준비생';
   $('jobTxt').textContent=j;
   $('monTxt').textContent=(S.job?`연봉 ${payStr(S.job)} · `:'')+`자산 ${won(wealth(S))}`;
   sprite($('ava'),look(S),frame);
@@ -658,9 +658,9 @@ function hud(){
   goalLine();
   $('stats').innerHTML=statList().map(([k,l,x])=>{ const v=Math.round(x); const low=(k==='health'||k==='mental'||k==='love')&&v<30; return `<div class="stat"><span>${l}<i>${v}</i></span><div class="bar${low?' low':''}"><u style="width:${v}%"></u></div></div>`; }).join('');
   const g=$('guide');
-  if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'){
+  if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'&&S.hs!=='voc'){
     const q=studyGuide(S);
-    g.innerHTML=(S.age<=15?`과학고는 공부 60점부터 도전할 수 있다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
+    g.innerHTML=(S.age<=15?`과학고는 공부 60점, 자사고는 45점부터 도전할 수 있다. 외고는 영어도 본다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
     g.classList.remove('hidden');
   } else g.classList.add('hidden');
 }
@@ -842,7 +842,7 @@ function finish(e){
   $('ctl').classList.add('hidden');$('planBar').classList.add('hidden');$('app').classList.add('ended');
   const peak=S.hist.length?S.hist.reduce((a,h)=>LADDER.indexOf(h.tier)>LADDER.indexOf(a.tier)?h:a):null;
   const cv=S.hist.map(h=>`<li><time>${h.from}–${h.to}세</time><span>${esc(h.co)}<small>${h.label} · ${esc(h.title)}</small></span></li>`).join('');
-  const school=S.edu==null?(S.hs==='meister'?'소프트웨어 마이스터고 졸업':'고졸'):EDU[S.edu]+(S.flags.usMs?' · 미국 석사':S.flags.ms?' · 석사':'');
+  const school=S.edu==null?((HS_NAME[S.hs]||'고등학교')+' 졸업'):EDU[S.edu]+(majorName(S)?' '+majorName(S):'')+(S.major==='cs'&&S.major1&&S.major1!=='cs'?' · 컴퓨터공학 복수전공':'')+(S.flags.usMs?' · 미국 석사':S.flags.ms?' · 석사':'');
   const fam=S.partner?(S.partner.married?`${J(S.partner.name,'와')} 결혼`:`연인 ${S.partner.name}`)+(S.flags.kid?' · 자녀 있음':'')+(S.flags.pet?(S.flags.pet==='cat'?' · 고양이':' · 강아지'):''):(S.flags.divorced?'이혼 후 혼자 지냈다':'혼자 지냈다')+(S.flags.kid?' · 자녀 있음':'')+(S.flags.pet?(S.flags.pet==='cat'?' · 고양이와 함께':' · 강아지와 함께'):'');
   const B=badgesOf(S,e.id);
   const nw=addDex(e.id,B);

@@ -486,7 +486,7 @@ function newLife(seed,o){
   s.study=clamp(40+s.fam*4+R.norm()*12);
   s.money=0;s.job=null;s.hist=[];s.flags={};s.cd={};
   s.age=0;s.lv=1;s.lvYrs=0;s.track='ic';s.devYears=0;s.maxSal=0;s.huntYrs=0;s.loc='KR';s.usYrs=0;
-  s.edu=null;s.major=null;s.over=false;s.ending=null;
+  s.edu=null;s.major=null;s.major1=null;s.track2=null;s.over=false;s.ending=null;
   bornWith(s);
   s.plan={act:null,inv:'dep',work:'normal',spend:'normal'};s.wm={promo:1,raise:0,hire:0,layoff:0};s.sm=1;s.port={etf:0,stock:0,coin:0,div:0};s.proj=0;s.passive=0;
   s.recent=null;s.everSeen={};s.chains=[];
@@ -527,6 +527,13 @@ function hireP(s,tier){
   const c=CO[tier],st=s.st;
   let p=c.hp+(st.skill-c.sk)*.012+st.network*.0015+(s.flags.intern?.06:0)+(s.flags.ms?.07:0)+(s.flags.portfolio?.04:0)+mkt(s,s.birthYear+s.age)+Math.min(s.devYears,8)*.015+s.luck+(s.job?0:s.wm.hire)+(s.devYears>0?(s.st.rep-30)*.0015:0)+(s.st.charm-40)*.0008+(s.flags.cert&&(tier==='big'||tier==='mid')?.04:0);
   if(s.devYears===0&&slump(s)&&!c.us)p-=.06;
+  const mj=s.major1||s.major,yy=s.birthYear+s.age;
+  if(mj==='ee'&&tier==='big')p+=.06;
+  if(mj==='robot'&&(tier==='big'||tier==='mid'))p+=.04;
+  if(mj==='ai'&&yy>=2027)p+=.04;
+  if(mj==='math'&&(tier==='neka'||c.us))p+=.03;
+  if(mj==='design'&&tier==='startup')p+=.05;
+  if(s.flags.domain&&s.flags.domain!=='biz'&&s.flags.domain!=='hum')p+=.03;
   if(tier==='big'||tier==='neka'||tier==='fkr')p+=[-.08,-.06,-.03,0,.05,.12][(s.edu==null?-1:s.edu)+1];
   if(c.us){ if(st.english<45)p*=.2; else p+=(st.english-60)*.004; if(s.flags.usExp||s.flags.usMs)p+=.2; }
   else{ if(s.flags.usExp)p+=.25; if(s.age>=45)p-=.22; if(s.age>=50)p-=.2; }
@@ -754,7 +761,7 @@ function why(s,e){
     if(e!=='civil'&&s.age>=45)R.push('이 게임에서는 마흔다섯이 넘으면 한국 회사의 합격 가능성이 크게 줄어든다.');
     if(e==='civil'&&st.skill<40)R.push(`실력(${V('skill')})이 기업들이 바라는 수준에 못 미쳤다.`);
   }
-  else if(e==='never'){ R.push('개발과 거리가 먼 전공을 골랐고, 졸업 무렵 부트캠프 대신 전공을 살리는 길을 택했다.'); }
+  else if(e==='never'){ R.push(`개발과 거리가 먼 전공(${majorName(s)||'비전공'})을 골랐고, 졸업 무렵 부트캠프 대신 전공을 살리는 길을 택했다.`); }
   if(R.length<2&&s.devYears)R.push(`개발자로 ${s.devYears}년, 거친 회사 ${s.hist.length}곳.`);
   return R.slice(0,4);
 }
@@ -988,13 +995,13 @@ const TEEN=[
   ['정보 선생님이 "너는 이쪽에 소질이 있다"고 했다. 그 말을 오래 기억했다.','good',{skill:2,mental:3},s=>s.st.skill>8],
   ['체육대회 계주 마지막 주자로 뛰었다.','good',{health:2,network:2}],
   ['밤새 본 영상 사이트가 코딩 강의를 추천하기 시작했다.','n',{skill:1}],
-  ['모의고사 수학에서 처음으로 1등급을 받았다.','good',{study:3,mental:2},s=>s.study>55&&s.age>=16&&s.hs!=='meister'],
+  ['모의고사 수학에서 처음으로 1등급을 받았다.','good',{study:3,mental:2},s=>s.study>55&&s.age>=16&&s.hs!=='meister'&&s.hs!=='voc'],
   ['담임 선생님과 진로 상담을 했다. "개발자는 야근이 많다던데" 하고 걱정하셨다.','n',{},s=>s.age>=15],
   ['친구가 게임 핵을 만들어 달라고 했다. 거절했다.','n',{network:-1,mental:1}],
   ['수학여행 버스에서 휴대폰 배터리가 나갔다. 창밖을 오래 봤다.','n',{mental:2}],
   ['첫 스마트폰 요금 폭탄을 맞았다. 석 달 치 용돈이 사라졌다.','bad',{mental:-2}],
   ['급식 메뉴가 마음에 안 들어 매점 줄에서 점심시간을 다 썼다.','n',{}],
-  ['야자 시간에 몰래 코드를 짜다가 감독 선생님께 걸렸다. 화면을 보시더니 그냥 지나가셨다.','n',{skill:2},s=>s.st.skill>12&&s.age>=16&&s.hs!=='meister'],
+  ['야자 시간에 몰래 코드를 짜다가 감독 선생님께 걸렸다. 화면을 보시더니 그냥 지나가셨다.','n',{skill:2},s=>s.st.skill>12&&s.age>=16&&s.hs!=='meister'&&s.hs!=='voc'],
   {g:function*(s){ const p=clamp(.1+s.st.skill/60,.05,.8);
      const i=yield ch('교실 뒤 게시판에 정보올림피아드 공고가 붙었다.',[{l:'나간다',h:'입상 가능성 '+(p<.25?'낮음':p<.55?'반반':'높음')},{l:'내신에 집중한다',h:''}]);
      if(i===0){ if(s.R.chance(p))yield beat(s,'지역 대회에서 입상했다. 조회 시간에 이름이 불렸다.','good',{skill:6,study:4,mental:4});
@@ -1012,7 +1019,12 @@ const UNIV=[
   ['조별 과제 조장이 됐다. 팀원 한 명은 발표 날까지 연락이 닿지 않았다.','bad',{mental:-3,network:1}],
   ['전공 첫 수업에서 교수님이 "이 중 절반은 전과한다"고 했다.','n',{}],
   ['선배가 준 족보는 3년 전 것이었다. 문제가 전부 바뀌어 있었다.','bad',{mental:-2}],
-  ['포인터를 이해한 날, 세상이 조금 다르게 보였다.','good',{skill:3},s=>s.major==='cs'],
+  ['포인터를 이해한 날, 세상이 조금 다르게 보였다.','good',{skill:3},s=>mg(s)==='cs'],
+  ['회로 실험 시간에 오실로스코프 파형이 처음으로 교과서처럼 나왔다.','good',{skill:2},s=>s.major==='ee'||s.major1==='ee'],
+  ['디자인과 크리틱 시간에 교수님이 "예쁜데 왜 이렇게 만들었냐"고 물었다. 대답하지 못했다.','n',{charm:1,mental:-1},s=>s.major1==='design'],
+  ['경영학 원론 조별 과제에서 사업 계획서를 쓰다가 앱 화면까지 그려 갔다.','n',{network:2,skill:1},s=>s.major1==='biz'],
+  ['인공지능학과 동기 절반이 대학원 진학을 고민한다. 학부 졸업장으로는 부족하다는 말이 돌았다.','n',{study:2},s=>s.major1==='ai'],
+  ['로봇 동아리 방에 늘 납땜 냄새가 났다. 그 냄새가 좋아졌다.','good',{skill:2},s=>s.major1==='robot'],
   ['밤샘 과제를 끝내고 본 일출이 예뻤다.','n',{health:-2,skill:2}],
   ['축제 주점에서 주문 관리 프로그램을 급히 만들어 줬다. 그날 매출 1위를 했다.','good',{skill:2,network:4}],
   ['교양 수업에서 만난 다른 과 친구들과 친해졌다.','good',{network:4,mental:2}],
@@ -1914,39 +1926,94 @@ function* childhood(s){
   }
   yield* to(s,15);
   const pM=clamp(.2+s.st.skill/40+s.study/250,.05,.9), pS=clamp((s.study-60)/40,.02,.9);
-  i=yield ch('중학교 3학년. 고등학교를 정해야 한다.',[
+  const pJ=clamp((s.study-45)/35,.05,.9), pL=clamp((s.study*.6+s.st.english*1.5-32)/35,.05,.85), pV=.8, pA=clamp(.25+s.st.charm/150+s.fam*.05,.1,.85);
+  i=yield ch(pk(s,['중학교 3학년. 고등학교를 정해야 한다.','고입 원서를 쓰는 날. 어느 고등학교로 갈까?','담임 선생님이 고등학교 진학 상담을 하자고 했다.']),[
     {l:'일반고',h:'가장 흔한 길'},
+    {l:'자율형 사립고',h:pH(pJ)+' · 공부 분위기, 학비 부담'},
+    {l:'과학고·영재고',h:pH(pS)},
+    {l:'외국어고·국제고',h:pH(pL)+' · 영어가 크게 는다'},
     {l:'소프트웨어 마이스터고',h:pH(pM)+' · 졸업 후 바로 취업'},
-    {l:'과학고·영재고',h:pH(pS)}]);
+    {l:'특성화고 IT·게임과',h:pH(pV)+' · 일찍 실무를 배운다'},
+    {l:'예술고 디자인과',h:pH(pA)+' · 실기 시험'}]);
   s.hs='gen';
-  if(i===1){ if(R.chance(pM)){s.hs='meister';yield beat(s,'소프트웨어 마이스터고에 합격했다. 기숙사 짐을 싸며 조금 설렜다.','good',{skill:4});}
-             else yield beat(s,'마이스터고 면접에서 떨어졌다. 일반고에 진학했다.','bad',{mental:-3}); }
-  if(i===2){ if(R.chance(pS)){s.hs='sci';yield beat(s,'과학고에 합격했다. 입학 첫 주, 전교 1등만 모아 놓은 교실에서 처음으로 꼴찌 근처를 해 봤다.','good',{study:14,mental:-6});}
-             else yield beat(s,'과학고 입시에서 떨어졌다. 일반고에 진학했다.','bad',{mental:-3}); }
+  const pass=[1,pJ,pS,pL,pM,pV,pA][i], code=['gen','jasa','sci','lang','meister','voc','art'][i];
+  if(i>0&&R.chance(pass)){
+    s.hs=code;
+    yield beat(s,{jasa:pk(s,['자율형 사립고에 합격했다. 입학 설명회에서 "3년 동안 휴대폰은 금요일에만"이라는 말을 들었다.','자율형 사립고에 붙었다. 교복값부터 일반고와 달랐다.']),
+      sci:'과학고에 합격했다. 입학 첫 주, 전교 1등만 모아 놓은 교실에서 처음으로 꼴찌 근처를 해 봤다.',
+      lang:pk(s,['외국어고에 합격했다. 입학식 축사가 영어로 시작했다.','국제고에 붙었다. 반 친구 절반이 외국에서 살다 왔다.']),
+      meister:'소프트웨어 마이스터고에 합격했다. 기숙사 짐을 싸며 조금 설렜다.',
+      voc:pk(s,['특성화고 IT·게임과에 들어갔다. 첫 수업에서 게임 엔진을 깔았다.','특성화고 게임과에 입학했다. 동네 어른들은 "공부 못해서 갔냐"고 물었지만 신경 쓰지 않기로 했다.']),
+      art:pk(s,['예술고 디자인과 실기 시험에 붙었다. 합격자 명단을 보고 미술 학원 선생님이 울었다.','예술고에 합격했다. 첫날 사물함에 태블릿부터 넣었다.'])}[code],'good',
+      {jasa:{study:4,mental:-2},sci:{study:14,mental:-6},lang:{english:8,study:3},meister:{skill:4},voc:{skill:3,study:-2},art:{charm:5,mental:3}}[code]);
+    if(code==='jasa'&&s.fam<=1)yield beat(s,'학비 고지서를 받은 날, 부모님이 늦게까지 이야기를 나누셨다.','n',{mental:-3});
+  } else if(i>0)yield beat(s,`${['','자율형 사립고','과학고','외국어고','마이스터고','특성화고','예술고'][i]} ${i===6?'실기 시험':'입시'}에서 떨어졌다. 일반고에 진학했다.`,'bad',{mental:-3});
+}
+/* 학과: g는 계열(cs 개발 직결, eng 이공계, non 비이공계), gain은 학년마다 오르는 실력 */
+const MAJOR={
+  cs:{n:'컴퓨터공학과',g:'cs',gain:6},
+  ai:{n:'인공지능학과',g:'cs',gain:6},
+  ee:{n:'전자공학과',g:'eng',gain:4},
+  robot:{n:'기계·로봇공학과',g:'eng',gain:3},
+  math:{n:'수학·통계학과',g:'eng',gain:3,yr:{study:2}},
+  design:{n:'디자인학과',g:'non',gain:1,yr:{charm:2}},
+  biz:{n:'경영학과',g:'non',gain:0,yr:{network:2}},
+  hum:{n:'인문·어문학과',g:'non',gain:0,yr:{english:2}}
+};
+function mg(s){ return MAJOR[s.major]?MAJOR[s.major].g:s.major; }
+function majorName(s){ const m=MAJOR[s.major1||s.major]; return m?m.n:''; }
+const HS_NAME={gen:'일반고',jasa:'자율형 사립고',sci:'과학고',lang:'외국어고',meister:'소프트웨어 마이스터고',voc:'특성화고',art:'예술고'};
+/* 수능 뒤 원서: 계열에 따라 고를 수 있는 학과가 다르다 */
+function* chooseMajor(s,tier,special){
+  const R=s.R,tr=s.track2||'sci';
+  const L=tr==='sci'?[['cs','개발자로 가는 정석'],['ai','요즘 가장 경쟁이 센 과 · 2027년부터 채용에 유리'],['ee','반도체와 하드웨어 · 대기업에 유리'],['robot','움직이는 것을 만든다 · 제조 대기업에 유리'],['math','데이터와 알고리즘의 바탕 · 공부가 는다']]
+         :tr==='art'?[['design','화면을 그리는 사람 · 매력이 는다'],['cs','교차 지원 · 한 단계 낮은 학교'],['biz','교차 지원 · 한 단계 낮은 학교']]
+         :[['biz','회사와 돈의 언어 · 인맥이 는다'],['hum','글과 말 · 영어가 는다'],['design','실기 시험이 있다 · 스타트업에 유리'],['cs','교차 지원 · 한 단계 낮은 학교']];
+  const i=yield ch(special?'특별 전형 원서를 쓴다. 어느 학과에 지원할까?':pk(s,['원서 접수 마감 사흘 전. 어느 학과에 지원할까?','성적표를 받아 들고 학과 목록을 펼쳤다. 어디로 갈까?','담임 선생님과 원서 상담을 했다. 학과를 정해야 한다.']),
+    L.map(([k,h])=>({l:MAJOR[k].n,h:(tier>=3&&(k==='cs'||k==='ai')&&!h.includes('교차')?h+' · 경쟁이 세서 한 단계 낮아질 수도':h)})));
+  const k=L[i][0];let t2=tier,note='';
+  if(L[i][1].includes('교차')){ t2=Math.max(0,tier-1); note='계열을 바꿔 교차 지원했다. 한 단계 낮은 학교로 원서를 썼다. '; }
+  else if(tier>=3&&(k==='cs'||k==='ai')&&R.chance(k==='ai'?.4:.3)){ t2=tier-1; note=`${MAJOR[k].n} 경쟁률이 생각보다 높았다. 한 단계 낮은 학교에 붙었다. `; }
+  if(tr==='art'&&k==='design')apply(s,{charm:3});
+  return {k,t:t2,note};
 }
 function* highschool(s){
   const R=s.R;let i;
-  if(s.hs==='meister'){
+  if(s.hs==='meister'||s.hs==='voc'){
+    const M=s.hs==='meister';
     yield* to(s,17);
-    yield beat(s,'하루 여섯 시간씩 프로그래밍 수업을 들었다. 교내 해커톤에서 밤을 새우는 게 일상이었다.','good',{skill:14,network:6});
+    yield beat(s,M?'하루 여섯 시간씩 프로그래밍 수업을 들었다. 교내 해커톤에서 밤을 새우는 게 일상이었다.':pk(s,['친구들과 게임 엔진으로 팀 작품을 만들었다. 정보처리기능사를 포함해 자격증 세 개를 땄다.','학교 대표로 기능경기대회 웹디자인 부문에 나갔다. 지역 대회에서 동메달을 땄다.']),'good',M?{skill:14,network:6}:{skill:10,network:4,study:-3});
     yield* to(s,18);
-    i=yield ch('3학년. 채용 연계 현장실습 시즌이다.',[
-      {l:'현장실습으로 일찍 취업한다',h:'스무 살에 경력 시작'},
-      {l:'대학 진학으로 방향을 바꾼다',h:'수능 준비는 불리하다'}]);
-    if(i===0){ s.edu=null;s.major='cs';apply(s,{skill:6}); yield beat(s,'또래들이 수능을 볼 때, 첫 출근 준비를 했다.'); return 'work'; }
-    apply(s,{study:-8});
-    yield beat(s,'뒤늦게 수능 공부를 시작했다. 전공 실력은 있지만 국어 지문이 낯설다.');
-    s.major='cs';
-  } else {
-    yield* to(s,17);
-    if(s.st.skill>12)yield beat(s,'정보 수행평가 날, 반 친구 절반의 코드를 봐 줬다. 매점 빵을 한 달 치 얻어먹었다.','good',{network:5,skill:3});
-    else yield beat(s,'야자와 학원을 오가는 날들. 모의고사 등급에 기분이 오르내렸다.','n',{study:3,mental:-2});
-    i=yield ch('고2, 진로 희망 조사서를 받았다.',[
-      {l:'컴퓨터공학과',h:'개발자로 가는 정석'},
-      {l:'전자·기계 등 다른 공대',h:'취업이 잘된다고 들었다'},
-      {l:'경영·인문 등 다른 길',h:'코딩은 나중에 생각한다'}]);
-    s.major=['cs','eng','non'][i];
-    yield beat(s,['"요즘은 컴공이 의대 다음"이라는 말을 들었다. 생활기록부에 코딩 동아리 활동을 채웠다.','물리와 수학에 집중했다. 코딩은 대학 가서 하면 된다고 생각했다.','개발자는 남의 이야기라고 생각했다. 이때는.'][i],'n',i===0?{skill:4}:{study:2});
+    i=yield ch(M?'3학년. 채용 연계 현장실습 시즌이다.':'3학년. 취업반과 진학반 가운데 하나를 골라야 한다.',[
+      {l:M?'현장실습으로 일찍 취업한다':'취업반에서 바로 일자리를 찾는다',h:'스무 살에 경력 시작'},
+      {l:M?'대학 진학으로 방향을 바꾼다':'특성화고 특별 전형으로 대학에 간다',h:M?'수능 준비는 불리하다':'내신으로 간다 · 한 단계 높은 학교'}]);
+    if(i===0){ s.edu=null;s.major='cs';if(!M)s.flags.voc=1;apply(s,{skill:M?6:4}); yield beat(s,M?'또래들이 수능을 볼 때, 첫 출근 준비를 했다.':'졸업식 다음 주에 첫 출근을 했다. 사원증 사진 속 얼굴이 아직 앳됐다.'); return 'work'; }
+    s.track2='sci';
+    if(M){ apply(s,{study:-8}); yield beat(s,'뒤늦게 수능 공부를 시작했다. 전공 실력은 있지만 국어 지문이 낯설다.'); yield* to(s,18); yield* csat(s); return 'univ'; }
+    const base=s.study+s.fam*1.5+R.norm()*5, tier=Math.min(4,(base>=88?4:base>=70?3:base>=54?2:base>=38?1:0)+1);
+    const r=yield* chooseMajor(s,tier,true); s.major=r.k; s.edu=r.t;
+    yield beat(s,`${r.note}특성화고 특별 전형으로 ${EDU[s.edu]} ${MAJOR[s.major].n}에 입학했다.`,'good',{mental:5});
+    return 'univ';
+  }
+  yield* to(s,17);
+  const HSY={jasa:['기숙사 점호와 야간 자율 학습. 성적표의 등수가 생각보다 낮았다.','n',{study:6,mental:-3}],
+    sci:['수학 올림피아드반과 정보 영재반 사이를 오가며 살았다.','good',{study:4,skill:4,mental:-2}],
+    lang:['하루 수업의 절반이 영어였다. 토론 수업에서 처음으로 반론을 했다.','good',{english:12,study:2}],
+    art:['석고 소묘 대신 태블릿으로 그렸다. 게임 원화 공모전에 나가 입선했다.','good',{charm:4,mental:3,skill:2}]};
+  if(HSY[s.hs])yield beat(s,HSY[s.hs][0],HSY[s.hs][1],HSY[s.hs][2]);
+  else if(s.st.skill>12)yield beat(s,'정보 수행평가 날, 반 친구 절반의 코드를 봐 줬다. 매점 빵을 한 달 치 얻어먹었다.','good',{network:5,skill:3});
+  else yield beat(s,'야자와 학원을 오가는 날들. 모의고사 등급에 기분이 오르내렸다.','n',{study:3,mental:-2});
+  if(s.hs==='sci'){ s.track2='sci'; yield beat(s,'과학고라 계열 고민은 없었다. 대신 학과를 두고 오래 고민했다.'); }
+  else if(s.hs==='art'){ s.track2='art'; apply(s,{charm:2}); }
+  else{
+    i=yield ch(pk(s,['고2, 계열을 정해야 한다.','고2 진로 희망 조사서를 받았다. 계열 칸이 비어 있다.','문·이과 선택 상담을 했다.']),[
+      {l:'이과 (자연·공학 계열)',h:s.hs==='lang'?'외고에서는 드문 선택':'공대와 개발자로 가는 길'},
+      {l:'문과 (인문·사회 계열)',h:'경영·인문 계열'},
+      {l:'예체능 (디자인 입시)',h:'실기 학원을 다녀야 한다'}]);
+    s.track2=['sci','lib','art'][i];
+    yield beat(s,[pk(s,['"요즘은 컴공이 의대 다음"이라는 말을 들었다. 생활기록부를 코딩 동아리 활동으로 채웠다.','미적분 문제집을 세 권 풀었다. 개발자가 되려면 수학이 필요하다고 들었다.']),
+      pk(s,['경제 수업이 재미있었다. 개발자는 남의 이야기라고 생각했다. 이때는.','문학 시간에 쓴 시가 교내 문집에 실렸다.']),
+      '주말마다 입시 미술 학원에 다녔다. 손목에 늘 파스가 붙어 있었다.'][i],'n',[{skill:3,study:2},{english:3,network:2},{charm:4,study:-2,money:s.fam>=2?0:-100}][i]);
   }
   yield* to(s,18);
   yield* csat(s);
@@ -1956,7 +2023,7 @@ function* csat(s){
   const R=s.R;
   let again=true;
   while(true){
-    const score=s.study+s.fam*1.5+R.norm()*7;
+    const score=s.study+s.fam*1.5+R.norm()*7+(s.hs==='jasa'?3:0);
     const tier=score>=88?4:score>=70?3:score>=54?2:score>=38?1:0;
     const txt=['수능 날 긴장으로 손이 떨렸다.','수능은 평소 실력만큼 나왔다.','수능 날, 찍은 문제가 유난히 잘 맞았다.'][R.int(0,2)];
     if(again&&tier<4){
@@ -1970,8 +2037,8 @@ function* csat(s){
         continue;
       }
     }
-    s.edu=tier;
-    yield beat(s,`${EDU[tier]}${s.major==='cs'?' 컴퓨터공학과':s.major==='eng'?' 공과대학':''}에 입학했다.`,tier>=3?'good':'n',{mental:tier>=3?6:1});
+    const r=yield* chooseMajor(s,tier,false); s.major=r.k; s.edu=r.t;
+    yield beat(s,`${r.note}${EDU[s.edu]} ${MAJOR[s.major].n}에 입학했다.`,s.edu>=3?'good':'n',{mental:s.edu>=3?6:1});
     return;
   }
 }
@@ -1994,10 +2061,11 @@ function* univ(s){ s.inUniv=1; yield* univBody(s); s.inUniv=0; }
 function* univBody(s){
   const R=s.R;let i;
   const tuition=s.fam>=3?0:s.fam===2?-300:-800;
-  const gain=s.major==='cs'?6:s.major==='eng'?3:0;
+  const MJ=MAJOR[s.major]||MAJOR.cs, gain=MJ.gain; s.major1=s.major;
+  const yrFx=()=>{ if(MJ.yr)apply(s,MJ.yr); };
   const years=s.edu===0?2:4;
   // 1학년
-  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});
+  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});yrFx();
   if(s.fam<=1)yield beat(s,'학자금 대출을 받고 주말에는 편의점에서 일했다.','n',{mental:-2});
   i=yield ch(pk(s,['새내기 동아리 박람회. 어디에 들어갈까?','입학식 다음 날, 선배들이 동아리 전단을 손에 쥐여 줬다. 어디로 갈까?','캠퍼스 곳곳에 동아리 현수막이 걸렸다. 한 곳만 골라 보자.']),[
     {l:'코딩 동아리',h:'실력과 개발 인맥'},
@@ -2013,7 +2081,7 @@ function* univBody(s){
     return;
   }
   // 2학년
-  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});
+  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});yrFx();
   i=yield ch(pk(s,['2학년. 무엇에 시간을 쓸까?','2학년이 됐다. 후배가 생기니 마음이 급해진다. 올해는 어디에 힘을 줄까?','전공 수업이 본격적으로 어려워졌다. 2학년의 시간을 어디에 쓸까?']),[
     {l:'알고리즘 문제 풀이',h:'코딩 테스트의 기본기'},
     {l:'해커톤과 팀 프로젝트',h:'실전 감각과 인맥'},
@@ -2025,12 +2093,20 @@ function* univBody(s){
   else if(i===2){ s.flags.gpa=1; yield beat(s,'도서관 지정석이 생겼다. 학점은 4점대를 찍었다.','n',{study:6,skill:2}); }
   else yield beat(s,'MT, 축제, 여행. 학점은 내려갔지만 후회는 없다.','n',{mental:9,network:6});
   // 3학년
-  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});
-  if(s.major!=='cs'){
-    i=yield ch(s.major==='eng'?'전공 수업에서 C 언어를 다뤄 보니 의외로 재미있다.':'개발자 친구의 초봉 이야기를 들었다. 마음이 흔들린다.',[
-      {l:'컴퓨터공학을 복수전공한다',h:'힘들지만 확실하다'},
-      {l:'지금 전공에 집중한다',h:''}]);
+  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});yrFx();
+  if(mg(s)!=='cs'){
+    const Q={ee:'회로 과제로 임베디드 C를 짜다 보니 회로보다 코드가 더 재미있다.',robot:'제어 수업에서 짠 코드로 로봇 팔이 처음 움직였다. 소리를 질렀다.',math:'통계 과제를 파이썬으로 풀다가 밤을 새웠다. 계산보다 코드가 즐겁다.',
+      design:'내가 그린 시안을 직접 웹으로 만들어 보고 싶어졌다.',biz:'개발자 친구의 초봉 이야기를 들었다. 마음이 흔들린다.',hum:'번역 과제를 자동으로 처리하는 스크립트를 짜 봤다. 생각보다 재미있다.'}[s.major];
+    const third={ee:{l:'전공을 살려 임베디드 개발을 판다',h:'하드웨어를 아는 개발자'},robot:{l:'전공을 살려 로봇 소프트웨어를 판다',h:'움직이는 것을 코드로'},math:{l:'데이터 분석 쪽으로 판다',h:'통계를 아는 개발자'},design:{l:'프론트엔드를 독학한다',h:'디자인을 아는 개발자'},biz:{l:'창업 동아리에 들어간다',h:'사업을 아는 개발자'},hum:{l:'글을 살려 기술 문서를 쓴다',h:'말과 글을 아는 개발자'}}[s.major];
+    i=yield ch(Q,[{l:'컴퓨터공학을 복수전공한다',h:'힘들지만 확실하다'},third,{l:'지금 전공에 집중한다',h:''}]);
     if(i===0){ s.major='cs'; yield beat(s,'전공 두 개의 과제가 겹치는 학기를 버텼다. 자료구조 수업에서 처음으로 재미를 느꼈다.','good',{skill:12,mental:-5}); }
+    else if(i===1){ s.flags.domain=s.major1;
+      yield* out(s,{ee:[[6,'마이크로컨트롤러로 만든 스마트 화분이 학과 전시회에서 상을 받았다.','good',{skill:8,network:3}],[4,'보드를 두 장 태워 먹었다. 그래도 디버깅은 늘었다.','n',{skill:6,money:-50}]],
+        robot:[[6,'로봇 동아리에서 자율 주행 대회 본선에 나갔다.','good',{skill:8,network:4}],[4,'대회 당일 바퀴가 빠졌다. 고치면서 배운 게 더 많다.','n',{skill:6}]],
+        math:[[6,'공공 데이터 분석 공모전에서 상을 받았다.','good',{skill:7,study:3,network:2}],[4,'분석 결과가 직관과 반대로 나와 발표에서 진땀을 뺐다.','n',{skill:5}]],
+        design:[[6,'포트폴리오 사이트를 직접 만들었다. 디자인 회사보다 IT 회사에서 연락이 더 많이 왔다.','good',{skill:8,charm:2}],[4,'코드는 돌아갔지만 디자인과 동기들이 "개발자 감성"이라고 놀렸다.','n',{skill:6}]],
+        biz:[[5,'창업 동아리에서 만든 서비스로 교내 대회 상금을 받았다.','good',{network:8,skill:3,money:200}],[5,'회의만 하다 한 학기가 갔다. 대신 사람은 많이 알게 됐다.','n',{network:6}]],
+        hum:[[6,'오픈소스 문서 번역에 참여했다. 메인테이너가 영어로 고맙다는 메일을 보냈다.','good',{english:6,network:3,skill:2}],[4,'기술 용어 앞에서 번역이 막혔다. 그래서 코드를 직접 읽기 시작했다.','n',{skill:3,english:3}]]}[s.major]); }
     else yield beat(s,'하던 공부를 계속했다.','n',{study:3});
   }
   const pIn=clamp(.15+s.st.skill/70+(s.flags.gpa?.1:0)+s.edu*.04,.05,.9);
@@ -2044,14 +2120,21 @@ function* univBody(s){
                   else yield beat(s,'장학금 선발에서 떨어졌다. 대신 원어민 회화 스터디에 나갔다.','n',{english:6}); }
   else{ s.flags.research=1; yield beat(s,'연구실 막내가 됐다. 논문은 어렵지만 서버를 원 없이 써 봤다.','n',{skill:6,study:4}); }
   // 4학년
-  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});
-  if(s.major==='non'){
-    i=yield ch('졸업반. 문과 취업 문이 좁다는 걸 체감한다.',[
+  yield* to(s,s.age+1);apply(s,{money:tuition,skill:gain});yrFx();
+  if(mg(s)==='non'&&!(s.flags.domain&&s.major==='design')){
+    i=yield ch(s.major==='design'?'졸업반. 디자인 회사 초봉표를 보고 한숨이 나왔다.':'졸업반. 문과 취업 문이 좁다는 걸 체감한다.',[
       {l:'국비 지원 부트캠프에 들어간다',h:'6개월 뒤 개발자로 지원'},
-      {l:'전공을 살려 취업한다',h:'개발과는 다른 인생'}]);
+      {l:'전공을 살려 취업한다',h:'개발과는 다른 인생'},
+      {l:'졸업을 미루고 혼자 독학한다',h:'돈은 안 들지만 외롭다'}]);
     if(i===1){ yield end(s,'never'); return; }
+    if(i===2){ yield* out(s,[[6,pk(s,['한 학기 휴학하고 도서관에서 온라인 강의를 들었다. 깃허브 잔디가 처음으로 초록색이 됐다.','유튜브 강의와 공식 문서로 버텼다. 혼자 만든 할 일 앱이 그럭저럭 돌아갔다.']),'good',{skill:15,mental:-3}],
+      [4,'혼자 하다 보니 자꾸 멈췄다. 그래도 같은 처지의 스터디원 둘을 만났다.','n',{skill:10,network:3,mental:-5}]]); s.major='boot'; return; }
     yield beat(s,'하루 열두 시간씩 코드를 쳤다. 수료식 날 포트폴리오 사이트를 겨우 완성했다.','good',{skill:20,mental:-5});
     s.major='boot';return;
+  }
+  if(s.flags.domain==='design'&&mg(s)==='non'){
+    yield beat(s,'졸업 전시 작품을 직접 웹으로 구현했다. 디자인도 코드도 하는 사람으로 이름이 났다.','good',{skill:6,charm:2});
+    s.major='boot';
   }
   const canUS=s.st.english>=40&&(s.fam>=3||s.flags.research);
   i=yield ch('졸업반. 다음 걸음을 정해야 한다.',[
@@ -2410,13 +2493,13 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={GOALS,pickGoals,RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
+if(typeof module!=='undefined')module.exports={MAJOR,HS_NAME,majorName,GOALS,pickGoals,RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
 
 </script>
 <script>
 'use strict';
-const RAR={"r_ic":27.1,"r_cto":19.2,"r_mgr":9.8,"r_us":9.3,"burnout":7.8,"never":5.9,"health":5.5,"fire":5,"civil":3.6,"exit":3.4,"r_none":1.7,"chicken":0.7,"teacher":0.6,"r_free":0.5,"r_founder":0};
-const VER="1sofhrq";
+const RAR={"r_ic":27.1,"r_cto":18.4,"r_us":9.9,"r_mgr":9.2,"burnout":8.5,"never":5.7,"health":5.5,"fire":5.5,"civil":3.6,"exit":3,"r_none":1.7,"teacher":0.6,"chicken":0.6,"r_free":0.5};
+const VER="1i0h6wb";
 let rec=null,beatNo=0;
 const store={get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(_){ return null; } },set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(_){} },del(k){ try{ localStorage.removeItem(k); }catch(_){} }};
 const $=id=>document.getElementById(id);
@@ -2666,7 +2749,7 @@ function hud(){
   if(S.over)j=ENDINGS[S.ending].t;
   else if(S.job)j=`${S.job.co} · ${title(S)}`;
   else if(S.hist.length||S.huntYrs>0)j=S.loc==='US'?'구직 중 (미국)':'구직 중';
-  else j=S.age<7?'미취학':S.age<19?'학생':'학생·준비생';
+  else j=S.age<7?'미취학':S.age<16?'학생':(S.edu==null&&S.age<19&&S.hs)?`${HS_NAME[S.hs]} ${Math.min(3,S.age-15)}학년`:(S.edu!=null&&S.age<27)?`${EDU[S.edu]} ${majorName(S)}`.trim():'학생·준비생';
   $('jobTxt').textContent=j;
   $('monTxt').textContent=(S.job?`연봉 ${payStr(S.job)} · `:'')+`자산 ${won(wealth(S))}`;
   sprite($('ava'),look(S),frame);
@@ -2674,9 +2757,9 @@ function hud(){
   goalLine();
   $('stats').innerHTML=statList().map(([k,l,x])=>{ const v=Math.round(x); const low=(k==='health'||k==='mental'||k==='love')&&v<30; return `<div class="stat"><span>${l}<i>${v}</i></span><div class="bar${low?' low':''}"><u style="width:${v}%"></u></div></div>`; }).join('');
   const g=$('guide');
-  if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'){
+  if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'&&S.hs!=='voc'){
     const q=studyGuide(S);
-    g.innerHTML=(S.age<=15?`과학고는 공부 60점부터 도전할 수 있다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
+    g.innerHTML=(S.age<=15?`과학고는 공부 60점, 자사고는 45점부터 도전할 수 있다. 외고는 영어도 본다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
     g.classList.remove('hidden');
   } else g.classList.add('hidden');
 }
@@ -2858,7 +2941,7 @@ function finish(e){
   $('ctl').classList.add('hidden');$('planBar').classList.add('hidden');$('app').classList.add('ended');
   const peak=S.hist.length?S.hist.reduce((a,h)=>LADDER.indexOf(h.tier)>LADDER.indexOf(a.tier)?h:a):null;
   const cv=S.hist.map(h=>`<li><time>${h.from}–${h.to}세</time><span>${esc(h.co)}<small>${h.label} · ${esc(h.title)}</small></span></li>`).join('');
-  const school=S.edu==null?(S.hs==='meister'?'소프트웨어 마이스터고 졸업':'고졸'):EDU[S.edu]+(S.flags.usMs?' · 미국 석사':S.flags.ms?' · 석사':'');
+  const school=S.edu==null?((HS_NAME[S.hs]||'고등학교')+' 졸업'):EDU[S.edu]+(majorName(S)?' '+majorName(S):'')+(S.major==='cs'&&S.major1&&S.major1!=='cs'?' · 컴퓨터공학 복수전공':'')+(S.flags.usMs?' · 미국 석사':S.flags.ms?' · 석사':'');
   const fam=S.partner?(S.partner.married?`${J(S.partner.name,'와')} 결혼`:`연인 ${S.partner.name}`)+(S.flags.kid?' · 자녀 있음':'')+(S.flags.pet?(S.flags.pet==='cat'?' · 고양이':' · 강아지'):''):(S.flags.divorced?'이혼 후 혼자 지냈다':'혼자 지냈다')+(S.flags.kid?' · 자녀 있음':'')+(S.flags.pet?(S.flags.pet==='cat'?' · 고양이와 함께':' · 강아지와 함께'):'');
   const B=badgesOf(S,e.id);
   const nw=addDex(e.id,B);
