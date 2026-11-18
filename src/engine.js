@@ -41,13 +41,29 @@ const CO={
   big:    {label:'대기업',      names:['삼숭전자','엘쥐전자','현다이모터스','스크텔레콤'],base:5200,gr:.04,crunch:.35,stab:.96,learn:1.8,hp:.22,sk:50},
   neka:   {label:'네카라쿠배',  names:['네이바','카카우','라임','쿠팽','배달의민국','당근밭','토스트뱅크'],base:6200,gr:.055,crunch:.45,stab:.93,learn:3,hp:.16,sk:58},
   fkr:    {label:'외국계 한국지사',names:['구골 코리아','매크로소프트 코리아','아마존강 코리아'],base:7500,gr:.05,crunch:.3,stab:.92,learn:2.6,hp:.10,sk:65},
-  uss:    {label:'미국 스타트업',names:['스트라이프드','노션트','피그마니아','데이터브릭'],base:16000,gr:.06,crunch:.55,stab:.80,learn:3.2,hp:.11,sk:64,us:true},
-  usb:    {label:'미국 빅테크',  names:['구골','메가','아마존강','파인애플','매크로소프트','넷플렉스','엔비디야'],base:19000,gr:.07,crunch:.45,stab:.90,learn:3,hp:.09,sk:70,us:true},
+  uss:    {label:'미국 스타트업',names:['스트라이프드','노션트','피그마니아','데이터브릭'],base:18900,gr:.06,crunch:.55,stab:.80,learn:3.2,hp:.11,sk:64,us:true},
+  usb:    {label:'미국 빅테크',  names:['구골','메가','아마존강','파인애플','매크로소프트','넷플렉스','엔비디야'],base:20900,gr:.07,crunch:.45,stab:.90,learn:3,hp:.09,sk:70,us:true},
   free:   {label:'프리랜서',    names:['프리랜서'],base:5200,gr:0,crunch:.4,stab:1,learn:.6,hp:1,sk:0},
   founder:{label:'창업',        names:['내 회사'],base:2400,gr:0,crunch:.85,stab:1,learn:3,hp:1,sk:0}
 };
 const LADDER=['si','mid','startup','big','neka','fkr','uss','usb'];
 const LVM=[0,1,1.3,1.7,2.25,3.1];
+/* 미국 연봉: Levels.fyi 2025 미국 SWE 총보상 중앙값(신입 15.5만, 시니어 31.3만, 스태프 45.8만, 프린시펄 55.1만 달러)의 비율 */
+const LVM_US=[0,1,1.35,2.02,2.95,3.55];
+const USD=1350; /* 게임 기준 환율: 1달러 = 1,350원 (2026년 11월 무렵 시세) */
+function usd(m){ return '$'+(Math.round(m*10000/USD/1000)*1000).toLocaleString('en-US'); }
+function payStr(j){ return j.us?`${usd(j.sal)}(약 ${won(j.sal)})`:won(j.sal); }
+/* 실제 통계를 따른 장면에는 근거를 붙인다 */
+const SRC={
+  h1b:'H-1B 선정률 FY2021 약 46% → FY2024 약 25% → FY2026 약 35% (USCIS 집계). FY2027부터 임금 수준 가중 추첨',
+  opt:'미국 STEM 전공 졸업생은 OPT 12개월 + 연장 24개월 동안 일하며 H-1B에 해마다 응모할 수 있다 (USCIS)',
+  grace:'H-1B 등은 해고 뒤 최대 60일 안에 새 고용주나 신분을 찾아야 한다 (미국 연방 규정)',
+  slump:'2026년 3월 IT·통신 대기업·중견기업 신입 공고 전년 대비 73% 감소 (캐치 집계)',
+  option:'스톡옵션 행사자의 90.9%가 팔 곳이 없어 보유 중, 부여 취소율 31.3% (코드박스 2026)',
+  wedding:'신혼집을 뺀 평균 결혼 비용 5,912만 원 (듀오 2026)',
+  survive:'신생기업 5년 생존율 36.4% (통계청 기업생멸행정통계, 2018년 창업 기업)'
+};
+function cite(b,k){ b.src=SRC[k]; return b; }
 const T_KR=['','주니어 개발자','미들 개발자','시니어 개발자','리드 개발자','수석 개발자'];
 const T_KRM=['','주니어 개발자','미들 개발자','시니어 개발자','개발팀장','CTO'];
 const T_US=['','Software Engineer','Software Engineer II','Senior Engineer','Staff Engineer','Principal Engineer'];
@@ -108,10 +124,12 @@ function studyGuide(s){
 function beat(s,text,tone,d){ const real=d?apply(s,d):null; noteMoment(s,text,tone,real); return {t:'log',text,tone:tone||'n',d:real}; }
 function yr(s){ return {t:'year',age:s.age,y:s.birthYear+s.age}; }
 function ch(q,opts){ return {t:'choice',q,opts}; }
-function mkt(s,y){ if(y>=2020&&y<=2021)return .10; if(y>=2022&&y<=2024)return -.08; return Math.sin((y+s.phase)/2.6)*.06; }
+function mkt(s,y){ if(y>=2020&&y<=2021)return .10; if(y===2022)return .02; if(y>=2023&&y<=2026)return -.08; return Math.sin((y+s.phase)/2.6)*.06; }
+function slump(s){ const y=s.birthYear+s.age; return y>=2023&&y<=2027; }
 function hireP(s,tier){
   const c=CO[tier],st=s.st;
   let p=c.hp+(st.skill-c.sk)*.012+st.network*.0015+(s.flags.intern?.06:0)+(s.flags.ms?.07:0)+(s.flags.portfolio?.04:0)+mkt(s,s.birthYear+s.age)+Math.min(s.devYears,8)*.015+s.luck+(s.job?0:s.wm.hire)+(s.devYears>0?(s.st.rep-30)*.0015:0)+(s.st.charm-40)*.0008+(s.flags.cert&&(tier==='big'||tier==='mid')?.04:0);
+  if(s.devYears===0&&slump(s)&&!c.us)p-=.06;
   if(tier==='big'||tier==='neka'||tier==='fkr')p+=[-.08,-.06,-.03,0,.05,.12][(s.edu==null?-1:s.edu)+1];
   if(c.us){ if(st.english<45)p*=.2; else p+=(st.english-60)*.004; if(s.flags.usExp||s.flags.usMs)p+=.2; }
   else{ if(s.flags.usExp)p+=.25; if(s.age>=45)p-=.22; if(s.age>=50)p-=.2; }
@@ -122,16 +140,19 @@ function closeJob(s){ const h=s.hist[s.hist.length-1]; if(h&&h.to==null){h.to=s.
 function hire(s,tier,o){
   o=o||{};const c=CO[tier],R=s.R;
   const prev=s.job?s.job.sal:(s.lastSal||0);
+  if(s.job&&s.flags.stock&&s.job.yrs<2)s.flags.optCancel=1;
   if(s.job)closeJob(s);
   const fresh=c.names.filter(n=>!s.hist.some(h=>h.co===n));
   const name=o.name||R.pick(fresh.length?fresh:c.names);
-  let sal=c.base*LVM[s.lv]*(.92+R()*.16);
+  let sal=c.base*(c.us?LVM_US:LVM)[s.lv]*(.92+R()*.16);
   if(o.raise&&prev)sal=Math.max(sal,prev*o.raise);
   if(tier==='free')sal=2500+s.st.skill*70;
   s.job={tier,co:name,sal:Math.round(sal),yrs:0,us:!!c.us};
   s.hist.push({co:name,tier,label:c.label,from:s.age,to:null,title:title(s)});
   s.st.rep=s.devYears===0&&s.st.rep===0?20+(s.flags.intern?6:0):Math.round(s.st.rep*.75);
   s.huntYrs=0;s.flags.omen=0;s.flags.mentor=0;s.flags.stock=0;
+  const wasUS=s.loc==='US';
+  if(c.us&&wasUS&&s.flags.opt>0&&!s.flags.h1b&&!s.flags.gc&&!s.flags.l1)s.flags.onOpt=s.flags.opt;
   if(c.us)s.loc='US';
   s.momentBonus=(s.hist.length===1?7:0)+(c.us&&!s.hist.slice(0,-1).some(h=>CO[h.tier].us)?7:0);
   s.maxSal=Math.max(s.maxSal,s.job.sal);
@@ -228,13 +249,22 @@ function bornWith(s){
   const pool=GIFT.slice();s.gifts=[];
   while(s.gifts.length<3){ const g=pool.splice(R.int(0,pool.length-1),1)[0]; if(s.gifts.some(x=>x.g===g.g))continue; g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d}); }
 }
-function visaP(s){ return clamp(.35+s.luck*2,.1,.8); }
+/* 등록 연도 y의 추첨은 회계연도 y+1 몫이다 */
+function h1bBase(s){
+  const y=s.birthYear+s.age;
+  const known={2020:.46,2021:.44,2022:.27,2023:.25,2024:.29,2025:.35};
+  if(known[y]!=null)return known[y];
+  if(y<2020)return .45;
+  /* FY2027부터 임금 레벨에 따라 추첨권 1~4개. 레벨별 실제 당첨률은 미공개라 게임에서 정한 값 */
+  return .30*[0,.8,1,1.25,1.45,1.6][Math.min(s.lv,5)];
+}
+function visaP(s,ms){ return clamp(h1bBase(s)*(ms?1.25:1)+s.luck*2,.08,.85); }
 
 /* ================= 도감과 "왜 이렇게 끝났나" ================= */
 const HEAL_ACTS=['fit','checkup','t_sport','k_play','k_swim','o_walk'],CALM_ACTS=['rest','family','hobby','t_fun','trip','k_play','o_garden'],LEARN_ACTS=['algo','learn','cert','eng','blog'];
 function trackAct(s,id){ s.tr.acts[id]=(s.tr.acts[id]||0)+1; }
 function actYears(s,ids,from){ let n=0; for(const id of ids)n+=(s.tr.acts[id]||0); return n; }
-function visaDraw(s){ s.tr.visaTry++; const ok=s.R.chance(visaP(s)); if(ok)s.tr.visaWin++; return ok; }
+function visaDraw(s,ms){ s.tr.visaTry++; const ok=s.R.chance(visaP(s,ms)); if(ok){ s.tr.visaWin++; s.flags.h1b=1; } return ok; }
 /* 사건 하나의 무게: 능력치 변화 합 + 돈(1,500만 원당 1) */
 function noteMoment(s,text,tone,real){
   if(s.noMoment||!real||s.age<5)return;
@@ -283,7 +313,7 @@ function why(s,e){
     const care=e==='health'?heal:calm;
     if(care===0)R.push(`스무 살 이후 ${e==='health'?'운동이나 건강을 챙기는':'쉬거나 마음을 돌보는'} 계획을 한 번도 고르지 않았다.`);
     else if(care*4<adultYrs)R.push(`${e==='health'?'몸':'마음'}을 챙긴 해는 ${care}년뿐이었다.`);
-    if(e==='health'){ if(G('약한 몸'))R.push('타고난 "약한 몸" 때문에 체력이 더 빨리 깎였다.'); if(s.parents.body==='잔병치레가 잦은 집안')R.push('잔병치레가 잦은 집안 체질을 물려받았다.'); if(s.age>40)R.push('마흔이 넘으면 해마다 체력이 조금씩 더 줄어든다.'); if(t.sick)R.push(`병가로 ${t.sick}번 버텼지만 회복이 따라가지 못했다.`); }
+    if(e==='health'){ if(G('약한 몸'))R.push('타고난 "약한 몸" 때문에 체력이 더 빨리 깎였다.'); if(s.parents.body==='잔병치레가 잦은 집안')R.push('잔병치레가 잦은 집안 체질을 물려받았다.'); if(s.age>40)R.push('마흔이 넘으면 해마다 체력이 조금씩 더 줄어든다(게임 규칙).'); if(t.sick)R.push(`병가로 ${t.sick}번 버텼지만 회복이 따라가지 못했다.`); }
     else{ if(G('예민한 성격'))R.push('타고난 "예민한 성격" 때문에 멘탈이 더 크게 흔들렸다.'); if(s.parents.mood==='다툼이 잦은 집')R.push('다툼이 잦은 집에서 자라 멘탈이 낮은 채로 출발했다.'); if(t.layoffs)R.push(`해고와 권고사직을 ${t.layoffs}번 겪었다.`); if(s.exes)R.push(`이별을 ${s.exes}번 겪었다.`); }
   }
   else if(e==='fire'){
@@ -300,12 +330,12 @@ function why(s,e){
   else if(e==='r_cto'||e==='r_mgr'){ R.push(`${t.trackAt||'시니어'}${t.trackAt?'세에 ':' 단계에서 '}관리자의 길을 골랐다. 한국 회사에서 관리자는 정년까지 버티기 쉽다.`); R.push(e==='r_cto'?`넓은 인맥과 높은 평판으로 맨 위까지 올랐다. 정년 때 인맥 ${V('network')} · 평판 ${V('rep')}.`:`CTO까지 오르려면 인맥 78 · 평판 72 이상이어야 했다. 정년 때는 인맥 ${V('network')} · 평판 ${V('rep')}.`); }
   else if(e==='r_ic'){ R.push('관리자 대신 엔지니어로 남는 길을 지켰다.'); if(learn)R.push(`공부하는 계획(알고리즘, 새 기술, 블로그 등)을 ${learn}년 골라 실력(${V('skill')})을 지켰다.`); if(t.layoffs)R.push(`해고를 ${t.layoffs}번 겪고도 다시 자리를 찾았다.`); }
   else if(e==='r_us'){ R.push(s.flags.usMs?'미국 석사로 건너가 그곳에서 첫 일자리를 얻었다.':t.transfer?'외국계 한국지사에서 본사로 옮겨 갔다.':'한국에서 경력을 쌓은 뒤 미국 회사에 직접 지원했다.'); if(t.visaTry)R.push(`H-1B 추첨에 ${t.visaTry}번 도전해 ${t.visaWin}번 당첨됐다.`); R.push(`미국에서 ${s.usYrs}년을 일했다. 영어 ${V('english')}.`); }
-  else if(e==='r_free'){ R.push(`${t.freeAt||45}세 무렵 회사에 다시 들어가기 어려워 프리랜서가 됐다. 한국에서는 마흔다섯이 넘으면 합격 가능성이 크게 줄어든다.`); }
+  else if(e==='r_free'){ R.push(`${t.freeAt||45}세 무렵 회사에 다시 들어가기 어려워 프리랜서가 됐다. 이 게임에서는 마흔다섯이 넘으면 합격 가능성이 크게 줄어든다.`); }
   else if(e==='r_founder'){ const f=s.hist.find(h=>h.tier==='founder'); if(f)R.push(`${f.from}세에 세운 회사를 ${60-f.from}년 동안 지켰다.`); }
   else if(e==='r_none'||e==='chicken'||e==='teacher'||e==='civil'){
     if(t.hunt>=2)R.push(`일자리를 찾던 기간이 모두 ${t.hunt}년이었다.`);
     if(t.layoffs)R.push(`해고와 권고사직을 ${t.layoffs}번 겪었다.`);
-    if(e!=='civil'&&s.age>=45)R.push('마흔다섯이 넘으면 한국 회사의 합격 가능성이 크게 줄어든다.');
+    if(e!=='civil'&&s.age>=45)R.push('이 게임에서는 마흔다섯이 넘으면 한국 회사의 합격 가능성이 크게 줄어든다.');
     if(e==='civil'&&st.skill<40)R.push(`실력(${V('skill')})이 기업들이 바라는 수준에 못 미쳤다.`);
   }
   else if(e==='never'){ R.push('개발과 거리가 먼 전공을 골랐고, 졸업 무렵 부트캠프 대신 전공을 살리는 길을 택했다.'); }
@@ -772,7 +802,7 @@ const EV3=[
  {id:'propose',w:s=>s.partner&&!s.partner.married&&s.partner.yrs>=2&&s.age>=25?13:0,cd:1,c:1,*run(s){ const R=s.R,p=s.partner;
     if(p.wait>=2){
       const i=yield ch(`${J(p.name,'가')} 먼저 물었다. "우리, 결혼은 언제 해?"`,[{l:'"지금 하자"고 답한다',h:''},{l:'아직 준비가 안 됐다고 답한다',h:'헤어질 수도 있다'}]);
-      if(i===0){ p.married=true;s.flags.married=1;lv(s,15); yield beat(s,`그 자리에서 날짜를 잡았다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-4000,network:3}); }
+      if(i===0){ p.married=true;s.flags.married=1;lv(s,15); yield cite(beat(s,`그 자리에서 날짜를 잡았다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-5900,network:3}),'wedding'); }
       else if(R.chance(.55))yield* breakup(s,`${J(p.name,'는')} 더 기다릴 수 없다고 했다. 긴 연애가 끝났다.`);
       else{ p.wait=0;lv(s,-10); yield beat(s,`${J(p.name,'는')} 한숨을 쉬고 조금 더 기다리기로 했다.`,'n',{mental:-3}); }
       return;
@@ -786,7 +816,7 @@ const EV3=[
     else if(j===1){ txt=`디저트가 나오기 전에 말을 꺼냈다. ${p.name}의 눈이 커졌다.`; }
     else{ bonus=.06;apply(s,{money:-300});txt='해 질 무렵 바닷가에서 무릎을 꿇었다. 반지 상자를 여는 손이 떨렸다.'; }
     if(R.chance(clamp(p.love/100+.1+bonus+(s.st.charm-40)/300,.08,.95))){ p.married=true;s.flags.married=1;lv(s,15);
-      yield beat(s,`${txt} 그해 결혼식을 올렸다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-4000,network:3}); }
+      yield cite(beat(s,`${txt} 그해 결혼식을 올렸다. 청첩장은 직접 웹으로 만들었고, 하객 몇은 링크가 안 열린다고 했다.`,'good',{mental:12,money:-5900,network:3}),'wedding'); }
     else{ lv(s,-12); yield beat(s,`${txt} 하지만 ${J(p.name,'는')} "아직은 잘 모르겠어"라고 했다.`,'bad',{mental:-7}); } }},
  {id:'baby',w:s=>s.partner&&s.partner.married&&!s.flags.kid&&!s.flags.noKid&&s.age<=42?6:0,cd:2,c:1,*run(s){ const p=s.partner;
     const i=yield ch(`${J(p.name,'와')} 아이 이야기를 나눴다.`,[{l:'아이를 갖기로 한다',h:'기쁨이 크고, 돈과 체력이 든다'},{l:'둘이서 살기로 한다',h:''}]);
@@ -1219,8 +1249,8 @@ function* hunt(s){
       {l:'미국 스타트업에 지원한다',h:pH(ps)},
       {l:'한국으로 돌아간다',h:'미국 경력은 한국에서 큰 무기다'}]);
     if(i<2){
-      if(R.chance(i?ps:pb)){ hire(s,i?'uss':'usb'); yield beat(s,`58일째 되던 날 ${s.job.co}의 오퍼가 왔다. 비자 스폰서도 약속받았다. 그제야 숨이 쉬어졌다.`,'good',{mental:8}); return; }
-      yield beat(s,'60일 안에 오퍼를 받지 못했다. 이삿짐을 싸서 한국행 비행기에 올랐다.','bad',{mental:-10});
+      if(R.chance(i?ps:pb)){ hire(s,i?'uss':'usb'); yield cite(beat(s,`58일째 되던 날 ${s.job.co}의 오퍼가 왔다. 비자 스폰서도 약속받았다. 그제야 숨이 쉬어졌다.`,'good',{mental:8}),'grace'); return; }
+      yield cite(beat(s,'60일 안에 오퍼를 받지 못했다. 이삿짐을 싸서 한국행 비행기에 올랐다.','bad',{mental:-10}),'grace');
     } else yield beat(s,'한국으로 돌아가기로 했다. 공항에 마중 나온 가족을 보니 눈물이 났다.','n',{mental:4});
     s.loc='KR';s.flags.usExp=1;return;
   }
@@ -1258,19 +1288,20 @@ function* hunt(s){
   const t=tiers[i];
   if(R.chance(ps[i])){
     if(CO[t].us&&s.loc==='KR'&&!s.flags.gc){
-      if(!visaDraw(s)){ yield beat(s,`${CO[t].label} 최종 합격. 그러나 H-1B 취업비자 추첨에서 떨어졌다. 오퍼는 없던 일이 됐다.`,'bad',{mental:-9}); return; }
-      yield beat(s,'H-1B 취업비자 추첨에 당첨됐다. 실력으로 어쩔 수 없는 관문을 운으로 넘었다.','good');
+      if(!visaDraw(s)){ yield cite(beat(s,`${CO[t].label} 최종 합격. 그러나 H-1B 취업비자 추첨에서 떨어졌다. 오퍼는 없던 일이 됐다.`,'bad',{mental:-9}),'h1b'); return; }
+      yield cite(beat(s,'H-1B 취업비자 추첨에 당첨됐다. 실력으로 어쩔 수 없는 관문을 운으로 넘었다.','good'),'h1b');
     }
     if(s.loc==='US'&&!CO[t].us){ s.loc='KR';s.flags.usExp=1; }
     hire(s,t);
     yield beat(s,`${s.job.co}에 ${title(s)}로 입사했다. ${HIRE_TXT[t]}`,'good',{mental:8});
   } else {
+    if(newbie&&slump(s)&&!CO[t].us&&R.chance(.5)){ yield cite(beat(s,R.pick(['신입 공고 자체가 거의 없었다. 경력 3년 이상만 뽑는 공고 사이에서 지원할 곳을 찾느라 한 해가 갔다.','AI 도구가 퍼지면서 회사들이 신입 채용을 줄였다는 기사가 연달아 나왔다. 서류 합격 연락이 한 통도 오지 않았다.']),'bad',{mental:-7}),'slump'); return; }
     yield beat(s,R.pick([
       '서류 서른일곱 곳 중 서른다섯 곳에서 떨어졌다. 나머지 두 곳은 코딩 테스트에서 떨어졌다.',
       '최종 면접까지 갔지만 "아쉽게도"로 시작하는 메일을 받았다.',
       '코딩 테스트 마지막 문제에서 시간이 모자랐다. 올해 채용은 끝났다.',
       '면접관이 "그래서 본인이 직접 한 건 뭐죠?"라고 물었고, 대답이 꼬였다.']),'bad',{mental:-6});
-    if(s.loc==='US'&&s.flags.opt===0&&!s.flags.gc){ s.loc='KR';s.flags.usExp=1; yield beat(s,'OPT 기간이 끝났다. 한국으로 돌아왔다.','bad',{mental:-5}); }
+    if(s.loc==='US'&&s.flags.opt===0&&!s.flags.gc){ s.loc='KR';s.flags.usExp=1; yield cite(beat(s,'OPT 기간이 끝났다. 한국으로 돌아왔다.','bad',{mental:-5}),'opt'); }
   }
 }
 
@@ -1328,15 +1359,16 @@ const EV=[
     if(i>=opts.length){ yield beat(s,'이직 사이트 앱을 지웠다. 올해는 여기서 한 번 더 해 보기로 했다.','n',{mental:2}); return; }
     const t=opts[i];
     if(R.chance(hireP(s,t))){
-      if(CO[t].us){ if(!visaDraw(s)){ yield beat(s,'미국 빅테크 최종 합격. 그러나 H-1B 취업비자 추첨에서 떨어졌다. 내년을 기약한다.','bad',{mental:-8}); return; }
-                    yield beat(s,'H-1B 취업비자 추첨에 당첨됐다. 가족에게 미국행을 알렸다.','good'); }
+      if(CO[t].us){ if(!visaDraw(s)){ yield cite(beat(s,'미국 빅테크 최종 합격. 그러나 H-1B 취업비자 추첨에서 떨어졌다. 내년을 기약한다.','bad',{mental:-8}),'h1b'); return; }
+                    yield cite(beat(s,'H-1B 취업비자 추첨에 당첨됐다. 가족에게 미국행을 알렸다.','good'),'h1b'); }
       hire(s,t,{raise:1.15}); yield beat(s,`${s.job.co}로 이직했다. ${HIRE_TXT[t]}`,'good',{mental:6});
     } else yield beat(s,'퇴근 후 몰래 본 면접들에서 모두 떨어졌다. 연차 사유를 "개인 사정"이라고 쓴 날들이 무색하다.','bad',{mental:-5}); }},
  {id:'omen',w:s=>s.job.tier==='startup'||s.job.tier==='uss'?4:0,cd:4,*run(s){ s.flags.omen=1; yield beat(s,'탕비실 과자 종류가 줄기 시작했다. 대표가 전사 미팅에서 "런웨이"라는 단어를 세 번 말했다.','bad',{mental:-3}); }},
  {id:'stock',w:s=>(s.job.tier==='startup'||s.job.tier==='uss')&&!s.flags.stock?5:0,cd:1,*run(s){ s.flags.stock=1; yield beat(s,'스톡옵션 계약서에 서명했다. 대박일지 휴지 조각일지는 아무도 모른다.','n',{mental:3}); }},
- {id:'ipo',w:s=>s.flags.stock&&s.job.yrs>=3?2.2:0,cd:99,*run(s){ const R=s.R;
-    if(R.chance(.3)){ const m=R.int(3,40)*(s.job.us?3000:1000); s.flags.stock=0; s.tr.ipo+=m; yield beat(s,`회사가 상장했다. 스톡옵션이 ${won(m)}이 됐다. 사무실 전체가 조용히 들떠 있다.`,'good',{money:m,mental:10}); }
-    else{ s.flags.stock=0; yield beat(s,'회사가 헐값에 인수됐다. 스톡옵션은 휴지 조각이 됐다.','bad',{mental:-6}); } }},
+ {id:'ipo',w:s=>s.flags.stock&&s.job.yrs>=3?2.6:0,cd:4,*run(s){ const R=s.R,x=R();
+    if(x<.12){ const m=R.int(3,40)*(s.job.us?3000:1000); s.flags.stock=0; s.tr.ipo+=m; yield cite(beat(s,`회사가 상장했다. 스톡옵션을 팔아 ${won(m)}을 손에 쥐었다. 동료 대부분은 아직도 팔 곳이 없는 주식을 들고 있다.`,'good',{money:m,mental:10}),'option'); }
+    else if(x<.70){ yield cite(beat(s,R_(s,['회사 가치가 올랐다는 기사가 났다. 하지만 비상장이라 스톡옵션을 팔 곳이 없다. 계좌에는 숫자만 있다.','스톡옵션을 행사했다. 세금은 냈는데 주식은 팔 수 없다. 언젠가를 기다린다.']),'n',{mental:-1}),'option'); }
+    else{ s.flags.stock=0; yield cite(beat(s,'회사가 헐값에 인수됐다. 스톡옵션은 행사가보다 싸져 휴지 조각이 됐다.','bad',{mental:-6}),'option'); } }},
  {id:'conf',w:s=>s.st.skill>=58?3:0,cd:5,*run(s){ yield beat(s,'개발자 컨퍼런스 무대에 섰다. 발표가 끝나자 질문 줄이 길게 늘어섰다.','good',{network:9,mental:4,skill:2}); }},
  {id:'oss',w:s=>s.st.skill>=45?3:0,cd:4,*run(s){ yield beat(s,'유명 오픈소스에 올린 풀 리퀘스트가 머지됐다. 메인테이너의 "LGTM" 한마디에 하루가 좋았다.','good',{skill:3,network:3,english:2,mental:3}); }},
  {id:'body',w:s=>s.age>=30?3+(s.age-30)/5:0,cd:4,*run(s){ yield beat(s,R_(s,['거북목과 손목터널증후군 진단을 받았다. 의사가 모니터 높이부터 물었다.','허리 디스크 초기 소견. 스탠딩 데스크를 샀다.','눈이 침침해져 처음으로 안경 도수를 올렸다.']),'bad',{health:-6}); }},
@@ -1361,11 +1393,11 @@ const EV=[
     if(s.flags.aiUser)yield beat(s,'AI가 단순 구현을 대신하면서 신입 채용이 동결됐다. AI를 잘 다루는 쪽에 속해 있어 다행이다.','n',{mental:-2,skill:2});
     else{ s.flags.omen=1; yield beat(s,'AI가 단순 구현을 대신하면서 팀 정원이 줄었다. 내 업무가 하나둘 자동화 목록에 오른다.','bad',{mental:-7}); } }},
  {id:'boom',w:s=>{const y=s.birthYear+s.age;return y>=2020&&y<=2021?12:0},cd:99,*run(s){ s.job.sal=Math.round(s.job.sal*1.12); yield beat(s,'개발자 품귀 현상. 회사들이 앞다퉈 연봉을 올렸고, 우리 회사도 전 직원 일괄 인상을 발표했다.','good',{mental:5}); }},
- {id:'frost',w:s=>{const y=s.birthYear+s.age;return y>=2022&&y<=2024?6:0},cd:99,*run(s){ yield beat(s,'투자 혹한기. 채용 공고가 눈에 띄게 줄었고 옆 팀이 통째로 사라졌다.','bad',{mental:-4}); }},
+ {id:'frost',w:s=>{const y=s.birthYear+s.age;return y>=2023&&y<=2026?6:0},cd:99,*run(s){ yield cite(beat(s,'투자 혹한기. 신입 채용 공고가 눈에 띄게 줄었고 옆 팀이 통째로 사라졌다.','bad',{mental:-4}),'slump'); }},
  {id:'love',w:s=>s.age>=25&&s.age<=38&&!s.flags.love?6:0,cd:99,*run(s){ s.flags.love=1; yield beat(s,'소개로 만난 사람과 연애를 시작했다. 퇴근 시간이 기다려진다.','good',{mental:10}); }},
  {id:'marry',w:s=>s.flags.love&&!s.flags.married&&!s.flags.noMarry?6:0,cd:3,c:1,*run(s){
     const i=yield ch('만난 지 꽤 됐다. 결혼 이야기가 나왔다.',[{l:'결혼한다',h:'목돈이 든다'},{l:'아직은 일에 집중한다',h:''}]);
-    if(i===0){ s.flags.married=1; yield beat(s,'결혼했다. 청첩장 디자인을 직접 웹으로 만들었고, 하객들은 링크가 안 열린다고 했다.','good',{mental:12,money:-4000,network:3}); }
+    if(i===0){ s.flags.married=1; yield beat(s,'결혼했다. 청첩장 디자인을 직접 웹으로 만들었고, 하객들은 링크가 안 열린다고 했다.','good',{mental:12,money:-5900,network:3}); }
     else{ s.flags.noMarry=1; yield beat(s,'미뤘다. 시간이 지나 각자의 길을 가게 됐다.','n',{mental:-6}); } }},
  {id:'kid',w:s=>s.flags.married&&!s.flags.kid&&s.age<=42?4:0,cd:99,*run(s){ s.flags.kid=1; yield beat(s,'아이가 태어났다. 새벽 수유와 새벽 장애 대응이 겹치는 날이 있었다.','good',{mental:10,health:-5}); }},
  {id:'house',w:s=>s.loc==='KR'&&wealth(s)>=30000&&!s.flags.house?7:0,cd:99,c:1,*run(s){ s.flags.house=1;
@@ -1374,7 +1406,7 @@ const EV=[
     else yield beat(s,'2년마다 이사 견적을 받는 삶을 이어 갔다.','n'); }},
  {id:'transfer',w:s=>s.job.tier==='fkr'&&s.job.yrs>=2&&s.st.skill>=60&&s.st.english>=48?8:0,cd:5,c:1,*run(s){
     const i=yield ch('본사 팀에서 미국으로 옮겨 올 생각이 있는지 물어 왔다. 주재원 비자라 추첨도 없다.',[{l:'미국으로 간다',h:'연봉은 뛰고, 삶은 통째로 바뀐다'},{l:'한국에 남는다',h:''}]);
-    if(i===0){ const nm=s.job.co.replace(' 코리아',''); hire(s,'usb',{name:nm,raise:2}); s.tr.transfer=1; yield beat(s,`${nm} 본사로 옮겼다. 이민 가방 세 개에 한국 생활을 접어 넣었다.`,'good',{mental:4,english:6}); }
+    if(i===0){ const nm=s.job.co.replace(' 코리아',''); hire(s,'usb',{name:nm,raise:2}); s.tr.transfer=1; s.flags.l1=1; yield beat(s,`${nm} 본사로 옮겼다. 이민 가방 세 개에 한국 생활을 접어 넣었다.`,'good',{mental:4,english:6}); }
     else yield beat(s,'가족과 친구가 있는 곳에 남기로 했다.','n',{mental:3}); }},
  {id:'usflav',w:s=>s.job.us?9:0,cd:1,*run(s){ const k=s.R.int(0,4);
     if(k===0)yield beat(s,'팀에서 유일한 한국인이다. 스탠드업 미팅에서 농담을 못 알아듣고 따라 웃었다.','n',{english:4,mental:-2});
@@ -1389,7 +1421,7 @@ const EV=[
     const i=yield ch('미국 빅테크 리크루터가 영어로 메일을 보내 왔다.',[{l:'면접 과정을 시작한다',h:pH(p)+' · 그다음엔 비자 추첨'},{l:'답장하지 않는다',h:''}]);
     if(i===1){ yield beat(s,'메일은 보관함으로 갔다.','n'); return; }
     if(!R.chance(p)){ yield beat(s,'화상 면접 다섯 번 중 네 번째에서 떨어졌다. 시스템 설계 질문에서 말이 막혔다.','bad',{mental:-4,english:2,skill:2}); return; }
-    if(!visaDraw(s)){ yield beat(s,'최종 합격했지만 H-1B 취업비자 추첨에서 떨어졌다. 열 명 중 예닐곱은 떨어지는 추첨이다.','bad',{mental:-8}); return; }
+    if(!visaDraw(s)){ yield cite(beat(s,'최종 합격했지만 H-1B 취업비자 추첨에서 떨어졌다. 당첨률은 해마다 다르고, 실력과는 상관이 없다.','bad',{mental:-8}),'h1b'); return; }
     hire(s,'usb',{raise:2}); yield beat(s,`합격, 그리고 비자 추첨 당첨. ${s.job.co}로 간다. ${HIRE_TXT.usb}`,'good',{mental:8}); }},
  {id:'found',w:s=>s.st.skill>=58&&s.st.network>=45&&s.money>=4000&&s.age>=27&&s.age<=46&&!s.job.us?2.5:0,cd:8,c:1,*run(s){
     const i=yield ch('믿을 만한 동료가 함께 창업하자고 한다. 아이템은 그럴듯하다.',[{l:'회사를 나와 창업한다',h:'대부분은 실패한다'},{l:'거절한다',h:''}]);
@@ -1407,7 +1439,7 @@ function* founderYear(s){
   const pExit=j.yrs>=3?.05+s.st.skill/1400+s.st.network/1400:0;
   const x=R();
   if(x<pExit){ const m=R.int(30,300)*1000; yield beat(s,`대기업이 인수를 제안했다. 지분 매각 대금으로 ${won(m)}을 받았다.`,'good',{money:m,mental:15}); yield end(s,'exit'); return; }
-  if(x<pExit+.2){ s.lastSal=4000; closeJob(s); yield beat(s,'통장 잔고가 다음 달 월급을 못 버틴다. 폐업 신고를 했다. 직원들의 재취업을 끝까지 도왔다.','bad',{money:-3000,mental:-12,skill:6,network:6}); return; }
+  if(x<pExit+.2){ s.lastSal=4000; closeJob(s); yield cite(beat(s,'통장 잔고가 다음 달 월급을 못 버틴다. 폐업 신고를 했다. 직원들의 재취업을 끝까지 도왔다.','bad',{money:-3000,mental:-12,skill:6,network:6}),'survive'); return; }
   if(x<pExit+.45){ j.sal=Math.round(j.sal*1.5+800); yield beat(s,R_(s,['투자 유치에 성공했다. 계약서에 서명하고 팀원들과 삼겹살을 먹었다.','매출이 처음으로 비용을 넘었다. 손익분기점이라는 단어를 소리 내어 읽어 봤다.']),'good',{mental:6,network:5}); }
   else yield beat(s,R_(s,['투자자 미팅 스물세 번째. "좋은 팀이네요, 지켜보겠습니다"를 스물세 번 들었다.','핵심 개발자가 퇴사했다. 다시 직접 코드를 짠다.','고객 문의 전화를 받다가 하루가 갔다.']),'n',{mental:-4,health:-3,skill:3});
 }
@@ -1428,10 +1460,17 @@ function* workYear(s){
   if(s.fam===0&&!s.flags.support){ s.flags.support=1; yield beat(s,'첫 월급부터 부모님께 생활비를 보내기 시작했다.','n',{mental:-1}); }s.passive=Math.round(s.passive*.85);
   apply(s,{skill:c.learn-(s.track==='mgr'?1.6:0)-(s.age>45?.6:0),health:1-c.crunch*3-(s.age>40?.8:0),mental:-1.2-c.crunch*4+(s.flags.married?.6:0)});
   apply(s,{rep:1+clamp((s.st.skill-c.sk)/20,-1,2),charm:s.age>50?-.5:0});
+  if(s.flags.optCancel){ s.flags.optCancel=0; yield cite(beat(s,'전 회사의 스톡옵션은 행사 기간 2년을 채우지 못해 사라졌다.','bad',{mental:-2}),'option'); }
+  if(j.us&&s.flags.onOpt>0&&!s.flags.h1b&&!s.flags.gc&&!s.flags.l1){
+    s.flags.onOpt--; s.flags.opt=Math.max(0,(s.flags.opt||0)-1);
+    if(visaDraw(s,!!s.flags.usMs))yield cite(beat(s,'회사가 넣어 준 H-1B 추첨에 당첨됐다. 이제 OPT 기한을 세지 않아도 된다.','good',{mental:9}),'h1b');
+    else if(s.flags.onOpt>0)yield cite(beat(s,`H-1B 추첨에서 떨어졌다. OPT로 일할 수 있는 시간이 ${s.flags.onOpt}년 남았다.`,'bad',{mental:-5}),'opt');
+    else{ s.lastSal=j.sal; closeJob(s); s.loc='KR'; s.flags.usExp=1; yield cite(beat(s,'마지막 추첨에도 떨어졌다. OPT가 끝나 회사를 떠나 한국행 비행기에 올랐다.','bad',{mental:-12}),'opt'); return; }
+  }
   if(j.tier==='founder'){ yield* founderYear(s); if(s.over||!s.job)return; }
   // 해고·권고사직
   let pL=(1-c.stab)*.5+(mkt(s,y)<-.03?.035:0)+(s.flags.omen?.22:0)-s.st.skill/1200;
-  if(!j.us&&s.age>=42&&s.track!=='mgr'&&j.tier!=='free'&&j.tier!=='founder')pL+=.12+(s.age-42)*.013-s.st.network/900;
+  if(!j.us&&s.age>=42&&s.track!=='mgr'&&j.tier!=='free'&&j.tier!=='founder')pL+=(['big','neka','fkr'].includes(j.tier)?.04+(s.age-42)*.006:.10+(s.age-42)*.011)-s.st.network/900;
   if(!j.us&&s.age>=45&&s.track==='mgr'&&j.tier!=='founder')pL+=.035;
   pL+=s.wm.layoff-s.st.rep/900;
   if(j.tier==='free')pL=s.age>=50?.1:.03;
@@ -1440,7 +1479,8 @@ function* workYear(s){
     if(j.tier==='free'){ j.sal=Math.round(j.sal*.6); yield beat(s,'단골 고객사가 내재화를 선언했다. 일감이 절반으로 줄었다.','bad',{mental:-7}); }
     else if(j.tier==='startup'||j.tier==='uss')yield layoff(s,s.flags.omen?'투자 유치에 실패해 회사가 문을 닫았다. 마지막 날 다 같이 서버를 내렸다.':'회사가 인력의 30%를 줄였다. 내 이름이 명단에 있었다.');
     else if(j.us)yield layoff(s,'아침 6시, 레이오프 메일이 왔다. 사내 계정은 이미 잠겨 있었다.');
-    else if(s.age>=42)yield layoff(s,'"개발자 정년은 마흔다섯"이라는 농담이 현실이 됐다. 권고사직 면담은 15분 만에 끝났다.');
+    else if(s.age>=42&&!['big','neka','fkr'].includes(j.tier))yield layoff(s,'"개발자 정년은 마흔다섯"이라는 농담이 현실이 됐다. 권고사직 면담은 15분 만에 끝났다.');
+    else if(s.age>=42)yield layoff(s,'조직 개편으로 팀이 없어졌다. 다른 팀에 자리가 나지 않아 퇴사 날짜가 정해졌다.');
     else yield layoff(s,'회사가 희망퇴직을 받았다. 희망한 적은 없지만 대상자였다.');
     if(!s.job)return;
   }
@@ -1476,7 +1516,7 @@ function* workYear(s){
         if(i===0)apply(s,{network:8});
       }
       s.lv++;s.lvYrs=0;j.sal=Math.round(j.sal*1.14);
-      yield beat(s,`${title(s)}(으)로 승진했다. 연봉이 ${won(j.sal)}이 됐다.`,'good',{mental:6});
+      yield beat(s,`${title(s)}(으)로 승진했다. 연봉이 ${payStr(j)}이 됐다.`,'good',{mental:6});
     }
   }
   j.sal=Math.round(j.sal*(1+c.gr*(s.age>45?.4:1)+(s.st.skill>65?.01:0)+s.wm.raise));
@@ -1523,4 +1563,4 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
+if(typeof module!=='undefined')module.exports={SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
