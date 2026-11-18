@@ -209,6 +209,21 @@ h1 em{font-style:normal;color:var(--stamp)}
 .dexCard.no b{color:var(--muted)}
 .dexCard .up{color:var(--good)} .dexCard .dn{color:var(--bad)}
 
+/* 공유 */
+#shareBox{position:fixed;inset:0;z-index:20;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+#shareBox.hidden{display:none}
+#shareBox .panel{background:var(--paper);border-radius:10px;max-width:440px;width:100%;max-height:100%;overflow-y:auto;padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
+#shareBox .shHead{display:flex;justify-content:space-between;align-items:center}
+#shareBox .shHead .ghost{padding:6px 14px;min-height:40px}
+#shareImg{width:100%;aspect-ratio:1080/1350;border:1px solid var(--line);border-radius:4px;background:var(--card)}
+.copyBox{width:100%;font:13px/1.5 var(--mono);color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px;resize:vertical}
+.inviteBox{}
+#inviteBox{display:flex;flex-direction:column;gap:8px}
+#inviteBox.hidden{display:none}
+.invite{border:1px solid var(--stamp);border-radius:6px;padding:10px 12px;background:var(--card);display:flex;flex-direction:column;gap:2px;font-size:14px}
+.invite b{color:var(--stamp);font-size:12.5px;font-family:var(--mono)}
+.invite small{color:var(--muted);font-size:12.5px}
+
 /* ===== 넓은 화면 ===== */
 .wideOnly{display:none}
 .note{font-size:13.5px;color:var(--muted)}
@@ -217,6 +232,7 @@ h1 em{font-style:normal;color:var(--stamp)}
   #app{max-width:1280px}
   #start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;row-gap:22px;align-content:center;padding:56px 48px}
   #start>*{grid-column:1}
+  #start #inviteBox{max-width:420px}
   #start .rules{grid-column:2;grid-row:1/span 6;align-self:center}
   #start h1{font-size:64px}
   #start .parade{flex-wrap:nowrap;gap:8px}
@@ -288,6 +304,7 @@ h1 em{font-style:normal;color:var(--stamp)}
 <div id="app">
 
   <section id="start">
+    <div id="inviteBox" class="hidden"></div>
     <p class="eyebrow">대한민국 개발자 인생 시뮬레이션</p>
     <h1>개발자로<br><em>살아남기</em></h1>
     <p class="lead">대한민국 어딘가에서 무작위로 태어나 개발자의 일생을 살아 봅니다. 예순까지 키보드를 놓지 않으면 생존이고, 그 뒤의 노년도 끝까지 이어집니다.</p>
@@ -349,6 +366,14 @@ h1 em{font-style:normal;color:var(--stamp)}
     <button id="btnSpeed">속도 1배</button>
     <button id="btnAuto" aria-pressed="false">자동 선택</button>
   </footer>
+  </div>
+  <div id="shareBox" class="hidden" role="dialog" aria-modal="true" aria-labelledby="shareT">
+    <div class="panel">
+      <div class="shHead"><b id="shareT">결과 카드</b><button class="ghost" id="btnShareClose">닫기</button></div>
+      <img id="shareImg" alt="이번 인생의 결과 카드">
+      <p class="fine" id="shareMsg"></p>
+      <div class="row"><button class="ghost" id="btnShareSave">이미지 저장</button><button class="primary" id="btnShareSend">공유하기</button></div>
+    </div>
   </div>
 </div>
 
@@ -2004,13 +2029,125 @@ const WIDE=matchMedia('(min-width:1100px)');
 let panelKey='';
 function show(ids){ $('sheet').classList.add('hidden');sheetOpen=false;$('app').classList.toggle('play',ids.includes('hud'));$('app').classList.remove('ended','asking');panelKey=''; ['start','birth','hud','stage','hall'].forEach(i=>$(i).classList.toggle('hidden',!ids.includes(i))); }
 
-function begin(){
-  const seed=(Math.random()*4294967296)>>>0;
+/* ===== 결과 공유: 같은 출생 링크, 오늘의 인생, 결과 카드 ===== */
+const SITE='https://yum02.github.io/Surviving_Developer/';
+function siteURL(){ try{ if(/github\.io$/.test(location.hostname))return location.origin+location.pathname; }catch(_){} return SITE; }
+function birthLink(seed){ return siteURL()+'#b-'+(seed>>>0).toString(36); }
+function todayKey(){ const d=new Date(); return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`; }
+function todaySeed(){ let h=5381; for(const c of 'today'+todayKey())h=(h*33^c.charCodeAt(0))>>>0; return h; }
+let inviteSeed=null;
+function readHash(){ let h=''; try{ h=location.hash||''; }catch(_){} const m=/^#b-([0-9a-z]{1,8})$/.exec(h); inviteSeed=m?(parseInt(m[1],36)>>>0):null; }
+function birthPreview(seed){ const p=newLife(seed); return `${p.birthYear}년 · ${p.region} · ${p.gender} · 형편 ${FAM[p.fam].n} · 타고난 것 ${p.gifts.map(g=>(g.p>0?'＋':'－')+g.n).join(' ')}`; }
+function summaryText(e,B){
+  const L=[`[개발자로 살아남기] ${S.name} · ${S.birthYear}–${S.birthYear+S.age} · 향년 ${S.age}세`,
+    `결말: ${e.title}`,
+    `개발자 ${S.devYears}년 · 최고 연봉 ${S.maxSal?won(S.maxSal):'없음'} · 남긴 자산 ${won(wealth(S))}`,
+    `타고난 것: ${S.gifts.map(g=>(g.p>0?'＋':'－')+g.n).join(' ')}`];
+  if(B.length)L.push(`발자취: ${B.slice(0,5).join(', ')}`);
+  L.push(`같은 출생으로 살아 보기: ${birthLink(S.seed)}`);
+  return L.join('\n');
+}
+function copyText(txt,btn,label){
+  const done=ok=>{ btn.textContent=ok?'복사했습니다':label; if(!ok)showCopyBox(txt,btn); };
+  try{ navigator.clipboard.writeText(txt).then(()=>done(true),()=>done(false)); }catch(_){ done(false); }
+}
+function showCopyBox(txt,btn){
+  let ta=btn.parentElement.parentElement.querySelector('textarea.copyBox');
+  if(!ta){ ta=document.createElement('textarea'); ta.className='copyBox'; ta.readOnly=true; ta.setAttribute('aria-label','복사할 내용'); btn.parentElement.after(ta); }
+  ta.value=txt; ta.rows=Math.min(8,txt.split('\n').length+1); ta.focus(); ta.select();
+}
+/* 한 사람의 다섯 시기 모습 */
+function lifeLooks(){
+  const sd=S.seed>>>0,skin=SKIN[(sd>>>5)%3],hair=HAIRC[(sd>>>3)%4],top=TOPC[sd%5],g=S.gender,gl=!!S.flags.glasses||((sd>>>7)&1)===1;
+  const founder=S.hist.some(h=>h.tier==='founder'),mgr=S.track==='mgr'&&S.lv>=4;
+  return [{stage:'baby',g,skin,hair,top:'#f4f1e8'},{stage:'kid',g,skin,hair,top,glasses:!!S.flags.glasses},{stage:'teen',g,skin,hair,top:'#27314a',collar:'#f4f1e8',glasses:gl},
+    {stage:'adult',g,skin,hair,top:founder?'#22252b':mgr?'#2c3442':top,collar:mgr?'#f4f1e8':null,tie:mgr?'#c2452f':null,laptop:S.devYears>0,glasses:gl},
+    {stage:'old',g,skin,hair:'#c9ccd1',top:'#b79b78',glasses:true,cane:S.age>=72}];
+}
+function wrapLines(c,text,maxW){
+  const out=[];let line='';
+  for(const word of String(text).split(' ')){
+    const tryL=line?line+' '+word:word;
+    if(c.measureText(tryL).width<=maxW){ line=tryL; continue; }
+    if(line)out.push(line);
+    if(c.measureText(word).width<=maxW){ line=word; continue; }
+    line='';
+    for(const ch of word){ if(c.measureText(line+ch).width>maxW){ out.push(line); line=ch; } else line+=ch; }
+  }
+  if(line)out.push(line);
+  return out;
+}
+async function drawCard(e,B){
+  const W=1080,H=1350,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const c=cv.getContext('2d');
+  const SERIF='"Noto Serif KR",serif',SANS='"IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif',MONO='"IBM Plex Mono",monospace';
+  const P='#f1f2ed',CARD='#fbfbf8',INK='#1b2430',MUT='#66707c',LINE='#d3d7d0',RED='#c0392b',GOOD='#1c7757',BAD='#a3561b';
+  const all=[S.name,e.title,B.join(''),S.gifts.map(g=>g.n).join(''),'개발자로살아남기인생결과향년세출생년최고연봉남긴자산거친회사곳타고난것발자취같은출생으로살아보기완주억만원없음0123456789–·'].join('');
+  try{ await Promise.all([document.fonts.load(`900 64px ${SERIF}`,all),document.fonts.load(`600 30px ${SANS}`,all),document.fonts.load(`400 30px ${SANS}`,all),document.fonts.load(`600 30px ${MONO}`,'0123456789#abcdefghijklmnopqrstuvwxyz/.:-–·$,')]); }catch(_){}
+  c.fillStyle=P;c.fillRect(0,0,W,H);
+  c.fillStyle=CARD;c.fillRect(48,48,W-96,H-96);c.strokeStyle=LINE;c.lineWidth=2;c.strokeRect(48,48,W-96,H-96);
+  const X=104,R=W-104,TW=R-X;
+  c.textBaseline='alphabetic';
+  c.fillStyle=MUT;c.font=`600 24px ${MONO}`;c.fillText('개발자로 살아남기 · 인생 결과',X,124);
+  c.fillStyle=INK;c.font=`900 84px ${SERIF}`;c.fillText(S.name,X,222);
+  c.fillStyle=MUT;c.font=`400 30px ${SANS}`;c.fillText(`${S.birthYear}–${S.birthYear+S.age} · 향년 ${S.age}세 · ${S.region} 출생`,X,272);
+  /* 도장 */
+  c.save();c.translate(R-80,168);c.rotate(-0.21);c.strokeStyle=RED;c.lineWidth=5;c.beginPath();c.arc(0,0,66,0,Math.PI*2);c.stroke();
+  c.fillStyle=RED;c.font=`900 34px ${SERIF}`;c.textAlign='center';c.fillText('완주',0,12);c.restore();c.textAlign='left';
+  /* 다섯 시기 */
+  const looks=lifeLooks(),tmp=document.createElement('canvas');tmp.width=16;tmp.height=18;
+  c.imageSmoothingEnabled=false;
+  looks.forEach((o,i)=>{ sprite(tmp,o,0); const x=X+i*(TW-112)/4,yy=300; c.fillStyle=P;c.fillRect(x,yy,112,126); c.drawImage(tmp,x,yy,112,126); });
+  c.fillStyle=LINE;c.fillRect(X,458,TW,2);
+  c.fillStyle=RED;c.font=`600 24px ${MONO}`;c.fillText('결말',X,510);
+  c.fillStyle=INK;c.font=`900 60px ${SERIF}`;
+  let y=578; for(const l of wrapLines(c,e.title,TW).slice(0,2)){ c.fillText(l,X,y); y+=74; }
+  y-=20;
+  const nums=[['개발자로 일한 기간',`${S.devYears}년`],['최고 연봉',S.maxSal?won(S.maxSal):'없음'],['남긴 자산',won(wealth(S))],['거친 회사',`${S.hist.length}곳`]];
+  nums.forEach((n,i)=>{ const x=X+(i%2)*(TW/2),yy=y+Math.floor(i/2)*104; c.fillStyle=LINE;c.fillRect(x,yy,TW/2-24,2); c.fillStyle=MUT;c.font=`400 25px ${SANS}`;c.fillText(n[0],x,yy+40); c.fillStyle=INK;c.font=`600 40px ${SANS}`;c.fillText(n[1],x,yy+86); });
+  y+=262;
+  const LX=X+150;
+  c.fillStyle=MUT;c.font=`400 25px ${SANS}`;c.fillText('타고난 것',X,y);
+  let gx=LX; c.font=`600 29px ${SANS}`;
+  for(const g of S.gifts){ const tt=(g.p>0?'＋ ':'－ ')+g.n; c.fillStyle=g.p>0?GOOD:BAD; c.fillText(tt,gx,y); gx+=c.measureText(tt).width+26; }
+  y+=62;
+  if(B.length){
+    c.fillStyle=MUT;c.font=`400 25px ${SANS}`;c.fillText('발자취',X,y);
+    c.font=`600 25px ${SANS}`;let bx=LX,by=y-31,rows=1;
+    for(const b of B.slice(0,6)){ const w=c.measureText(b).width+34; if(bx+w>R){ if(rows>=2)break; rows++; bx=LX; by+=54; }
+      c.strokeStyle=RED;c.lineWidth=2;c.beginPath();c.roundRect?c.roundRect(bx,by,w,42,21):c.rect(bx,by,w,42);c.stroke(); c.fillStyle=RED;c.fillText(b,bx+17,by+30); bx+=w+12; }
+    y=by+31+66;
+  }
+  const mo=keyMoments(S,3),FOOT=H-176;
+  if(mo.length){
+    c.fillStyle=MUT;c.font=`400 25px ${SANS}`;c.fillText('결정적 순간',X,y);
+    for(const m of mo){ if(y>FOOT-24)break; c.fillStyle=MUT;c.font=`600 23px ${MONO}`;c.fillText(`${m.a}세`,LX,y); c.fillStyle=m.tone==='good'?GOOD:m.tone==='bad'?BAD:INK;c.font=`400 26px ${SANS}`; const l=wrapLines(c,m.t,R-LX-80)[0]; c.fillText(l+(l.length<m.t.length?'…':''),LX+80,y); y+=44; }
+  }
+  c.fillStyle=LINE;c.fillRect(X,FOOT,TW,2);
+  c.fillStyle=INK;c.font=`600 29px ${SANS}`;c.fillText('같은 출생 조건으로 살아 보기',X,FOOT+56);
+  c.fillStyle=MUT;c.font=`400 24px ${MONO}`;c.fillText(birthLink(S.seed).replace(/^https?:\/\//,''),X,FOOT+96);
+  return cv;
+}
+async function openCard(e,B){
+  const box=$('shareBox'),img=$('shareImg');
+  img.removeAttribute('src');$('shareMsg').textContent='카드를 만드는 중입니다.';box.classList.remove('hidden');$('btnShareClose').focus();
+  const cv=await drawCard(e,B);const url=cv.toDataURL('image/png');img.src=url;
+  $('shareMsg').textContent='이미지를 길게 누르거나 마우스 오른쪽 버튼으로도 저장할 수 있습니다.';
+  const fname=`개발자로살아남기_${S.name}.png`;
+  $('btnShareSave').onclick=()=>{ try{ const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove(); }catch(_){ $('shareMsg').textContent='여기서는 바로 저장할 수 없습니다. 이미지를 길게 누르거나 오른쪽 클릭해 저장해 주세요.'; } };
+  let file=null; try{ const blob=await new Promise(r=>cv.toBlob(r,'image/png')); file=new File([blob],fname,{type:'image/png'}); }catch(_){}
+  const canShare=!!(file&&navigator.canShare&&navigator.canShare({files:[file]}));
+  $('btnShareSend').classList.toggle('hidden',!canShare);
+  $('btnShareSend').onclick=async()=>{ try{ await navigator.share({files:[file],text:summaryText(e,B)}); }catch(_){} };
+}
+
+function begin(sd,from){
+  const seed=(typeof sd==='number'?sd:(Math.random()*4294967296))>>>0;
   S=newLife(seed);it=life(S);it.next();beatNo=0;store.del('sad.save');
   peers=[1,2,3,4].map(k=>{ const p=newLife((seed+k*9973)>>>0); p.birthYear=S.birthYear; p.autoPlan=true; const g=life(p); let r=g.next(),n=0;
     while(!r.done&&n++<5000){ r=r.value.t==='choice'?g.next(Math.floor(Math.random()*r.value.opts.length)):g.next(); }
     return {name:p.name,region:p.region,ending:p.ending,devYears:p.devYears,age:p.age,last:p.hist.length?p.hist[p.hist.length-1].co:null}; });
-  rec={v:VER,seed,ans:[],plans:[],peers};
+  rec={v:VER,seed,ans:[],plans:[],peers,from:from||null};
   $('birthDl').innerHTML=[['이름',S.name],['성별',S.gender],['출생 연도',S.birthYear+'년'],['출생지','대한민국 '+S.region],['아버지',S.parents.dad],['어머니',S.parents.mom],['가정 형편',FAM[S.fam].n],['집안 분위기',S.parents.mood],['집안 체질',S.parents.body]]
     .map((r,i)=>i===0?`<dt><label for="nameIn">이름</label></dt><dd><input id="nameIn" type="text" maxlength="8" autocomplete="off" value="${esc(r[1])}" aria-describedby="nameHelp"><small id="nameHelp">직접 고쳐 쓸 수 있습니다 (8자까지)</small></dd>`:`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('');
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
@@ -2237,7 +2374,7 @@ function finish(e){
   const rar=RAR[e.id];
   const pr=peers.map(p=>`<li><time>${esc(p.name)}</time><span>${esc(ENDINGS[p.ending].t)}<small>${p.region} 출생 · 개발자 ${p.devYears}년 · 향년 ${p.age}세${p.last?' · 마지막 직장 '+esc(p.last):''}</small></span></li>`).join('');
   const r=mk('result',`
-    <div class="head"><div><p class="eyebrow">${S.name}의 일생 · ${S.birthYear}–${S.birthYear+S.age} · 향년 ${S.age}세</p>
+    <div class="head"><div>${rec&&rec.from?`<p class="eyebrow">${rec.from==='today'?'오늘의 인생 · '+todayKey():'친구가 보낸 출생'}</p>`:''}<p class="eyebrow">${S.name}의 일생 · ${S.birthYear}–${S.birthYear+S.age} · 향년 ${S.age}세</p>
     <h2>${esc(e.title)}</h2></div><canvas id="avaEnd" class="px face" width="16" height="18" role="img" aria-label="노년의 주인공"></canvas></div>
     <p>${esc(e.desc)}</p>
     <div class="nums">
@@ -2256,7 +2393,8 @@ function finish(e){
     <ul class="cv"><li><time>학력</time><span>${esc(school)}</span></li><li><time>타고남</time><span>${S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${esc(g.n)}</span>`).join(' · ')}</span></li><li><time>부모</time><span>${esc(S.parents.dad)} · ${esc(S.parents.mom)}<small>${esc(S.parents.mood)} · 가정 형편 ${FAM[S.fam].n}</small></span></li><li><time>가족</time><span>${esc(fam)}</span></li>${cv||'<li><time>경력</time><span>없음</span></li>'}</ul>
     <h3>같은 해에 태어난 네 사람</h3>
     <ul class="cv">${pr}</ul>
-    <div class="row"><button class="ghost" id="btnCopy">결과 복사</button><button class="primary" id="btnAgain">다시 태어나기</button></div>
+    <div class="row"><button class="ghost" id="btnCard">결과 카드</button><button class="ghost" id="btnCopy">요약 복사</button></div>
+    <div class="row"><button class="ghost" id="btnLink">같은 출생 링크</button><button class="primary" id="btnAgain">다시 태어나기</button></div>
     <button class="link" id="btnHall2">도감과 지난 인생 보기</button>`);
   $('log').appendChild(r);
   r.scrollIntoView({block:'start'});
@@ -2265,13 +2403,11 @@ function finish(e){
   recs.unshift({name:S.name,by:S.birthYear,age:S.age,end:e.title,dev:S.devYears,w:Math.round(wealth(S)),sal:S.maxSal,b:B,g:S.gifts.map(g=>g.n)});
   store.set('sad.records',recs.slice(0,50));
   paint();
-  $('btnAgain').onclick=begin;
+  $('btnAgain').onclick=()=>begin();
   $('btnHall2').onclick=()=>hall('dex');
-  $('btnCopy').onclick=()=>{
-    const txt=`[개발자로 살아남기] ${S.name}(${S.birthYear}년 ${S.region} 출생)의 결말: ${e.title}. 개발자로 ${S.devYears}년, 최고 연봉 ${S.maxSal?won(S.maxSal):'없음'}${peak?', 대표 경력 '+peak.co:''}.`;
-    const done=ok=>{ $('btnCopy').textContent=ok?'복사했습니다':'복사할 수 없습니다'; };
-    try{ navigator.clipboard.writeText(txt).then(()=>done(true),()=>done(false)); }catch(_){ done(false); }
-  };
+  $('btnCopy').onclick=e2=>copyText(summaryText(e,B),e2.currentTarget,'요약 복사');
+  $('btnLink').onclick=e2=>copyText(birthLink(S.seed),e2.currentTarget,'같은 출생 링크');
+  $('btnCard').onclick=()=>openCard(e,B);
 }
 const DEX_TOTAL=()=>Object.keys(ENDINGS).length+BADGES.length+GIFT.length;
 function loadDex(){
@@ -2301,8 +2437,14 @@ function dexHTML(){
 function startUI(){
   const sv=store.get('sad.save'),recs=store.get('sad.records')||[];
   const ok=sv&&sv.v===VER&&sv.n>0;
+  readHash();
+  const inv=inviteSeed!=null?`<div class="invite"><b>받은 출생</b><span>${esc(birthPreview(inviteSeed))}</span><small>링크를 보낸 사람과 같은 조건으로 태어납니다. 그 뒤의 인생은 선택과 운에 따라 달라집니다.</small></div><button class="primary" id="btnInvite">이 출생으로 태어나기</button>`:'';
+  $('inviteBox').innerHTML=inv;$('inviteBox').classList.toggle('hidden',!inv);
   $('startBtns').innerHTML=(ok?`<button class="primary" id="btnResume">이어 하기 · ${esc(sv.name)} ${sv.age}세</button><button class="ghost" id="btnStart">새로 태어나기</button>`:'<button class="primary" id="btnStart">태어나기</button>')+(recs.length?`<button class="link" id="btnHall">지난 인생 ${recs.length}개 · 도감 ${dexCount(loadDex())} / ${DEX_TOTAL()}</button>`:'');
-  $('btnStart').onclick=begin;
+  $('btnStart').onclick=()=>begin();
+  if(inviteSeed!=null)$('btnInvite').onclick=()=>{ const sd=inviteSeed; try{ history.replaceState(null,'',location.pathname+location.search); }catch(_){ try{ location.hash=''; }catch(__){} } begin(sd,'link'); };
+  $('startBtns').insertAdjacentHTML('beforeend',`<button class="link" id="btnToday">오늘의 인생 · ${todayKey()}에는 모두가 같은 조건으로 태어납니다</button>`);
+  $('btnToday').onclick=()=>begin(todaySeed(),'today');
   if(ok)$('btnResume').onclick=()=>resume(sv);
   if(recs.length)$('btnHall').onclick=()=>hall('rec');
 }
@@ -2318,6 +2460,10 @@ function hall(tab){
   if(!$('hall').classList.contains('hidden'))return;
   show(['hall']);$('hall').scrollTop=0;
 }
+$('btnShareClose').onclick=()=>$('shareBox').classList.add('hidden');
+$('shareBox').addEventListener('click',ev=>{ if(ev.target===$('shareBox'))$('shareBox').classList.add('hidden'); });
+document.addEventListener('keydown',ev=>{ if(ev.key==='Escape')$('shareBox').classList.add('hidden'); });
+window.addEventListener('hashchange',()=>{ if(!$('start').classList.contains('hidden'))startUI(); });
 $('btnHallBack').onclick=()=>{ show(['start']);startUI();paint(); };
 $('btnHallClear').onclick=e=>{ const b=e.currentTarget; if(b.dataset.arm){ store.del('sad.records');store.set('sad.dex',{e:{},b:{},g:{}});hall(); } else{ b.dataset.arm='1';b.textContent='한 번 더 누르면 기록과 도감을 모두 지웁니다'; } };
 $('tabRec').onclick=()=>hall('rec');
