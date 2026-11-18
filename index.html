@@ -2274,6 +2274,9 @@ async function openCard(e,B){
   const cv=await drawCard(e,B);const url=cv.toDataURL('image/png');img.src=url;
   $('shareMsg').textContent='이미지를 길게 누르거나 마우스 오른쪽 버튼으로도 저장할 수 있습니다.';
   const fname=`개발자로살아남기_${S.name}.png`;
+  const framed=(()=>{ try{ return window.top!==window; }catch(_){ return true; } })();
+  $('btnShareSave').classList.toggle('hidden',framed);
+  if(framed)$('shareMsg').textContent='이미지를 길게 누르거나 마우스 오른쪽 버튼으로 저장해 주세요. 게임 사이트(yum02.github.io)에서 열면 저장 버튼도 쓸 수 있습니다.';
   $('btnShareSave').onclick=()=>{ try{ const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove(); }catch(_){ $('shareMsg').textContent='여기서는 바로 저장할 수 없습니다. 이미지를 길게 누르거나 오른쪽 클릭해 저장해 주세요.'; } };
   let file=null; try{ const blob=await new Promise(r=>cv.toBlob(r,'image/png')); file=new File([blob],fname,{type:'image/png'}); }catch(_){}
   const canShare=!!(file&&navigator.canShare&&navigator.canShare({files:[file]}));
