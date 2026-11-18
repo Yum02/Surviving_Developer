@@ -122,6 +122,7 @@ h1 em{font-style:normal;color:var(--stamp)}
 
 /* 계획 */
 .tag.rare{color:var(--stamp);border-color:var(--stamp)}
+.tag.cn{color:var(--bad);border-color:var(--bad)} .tag.cg{color:var(--good);border-color:var(--good)}
 .entry.rareE{border-left-color:var(--stamp);background:linear-gradient(90deg,color-mix(in srgb,var(--stamp) 7%,transparent),transparent 70%)}
 .tag{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:0 5px;margin-right:7px;vertical-align:1px;white-space:nowrap}
 #planBar{flex:none;display:flex;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid var(--line);background:var(--card);font-size:13.5px}
@@ -174,13 +175,15 @@ h1 em{font-style:normal;color:var(--stamp)}
 .traits summary::-webkit-details-marker{display:none}
 .traits summary::after{content:"자세히";margin-left:auto;font-size:12px;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
 .traits[open] summary::after{content:"접기"}
-.traits .tl{font-size:12px;color:var(--muted);flex:none}
+.traits .tl{font-size:12px;color:var(--muted);flex:none;white-space:nowrap}
 .traits summary .up,.traits li .up{color:var(--good);font-weight:600}
+.traits summary .up,.traits summary .dn{white-space:nowrap}
 .traits summary .dn,.traits li .dn{color:var(--bad);font-weight:600}
 .traits ul{list-style:none;padding:4px 0 2px;display:flex;flex-direction:column;gap:5px}
 .traits li{display:flex;flex-direction:column;line-height:1.4}
 .traits li small{color:var(--muted);font-size:12px}
 .traits li.par{border-top:1px dashed var(--line);padding-top:5px;margin-top:2px}
+.traits li.sec{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:5px;margin-top:2px}
 /* 결말의 이유, 결정적 순간 */
 .whyList{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14.5px}
 .whyList li{padding-left:14px;position:relative}
@@ -310,6 +313,7 @@ h1 em{font-style:normal;color:var(--stamp)}
 .cv li{display:grid;grid-template-columns:5.2em 1fr;gap:8px}
 .cv time{font-family:var(--mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:2px}
 .cv small{display:block;color:var(--muted);font-size:12.5px}
+.cv small.cs{display:inline;margin-left:3px;font-size:12px}
 .row{display:flex;gap:8px}
 .row button{flex:1}
 .ghost{background:transparent;border:1px solid var(--ink);border-radius:6px;padding:14px 10px;font-weight:600}
@@ -626,14 +630,21 @@ function goalLine(){
   el.innerHTML=`<span>이번 생 목표</span><b>${esc(g.n)}</b><i class="${done?'ok':''}">${done?'이뤘다':g.now?'진행 중':'마지막에 판정'}</i>`;
   el.classList.remove('hidden');
 }
-function renderTraits(){
+function renderTraits(init){
   const BL={skill:'실력',health:'체력',mental:'멘탈',network:'인맥',english:'영어',study:'공부'};
   const fx=d=>Object.keys(d).map(k=>`${BL[k]} ${d[k]>0?'+':'−'}${Math.abs(d[k])}`).join(' · ');
-  $('traitSum').innerHTML=S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'}${esc(g.n)}</span>`).join(' ');
+  const C=condList(S),chip=(p,n)=>`<span class="${p>0?'up':'dn'}">${p>0?'＋':'－'}${esc(n)}</span>`;
+  $('traitSum').innerHTML=S.gifts.map(g=>chip(g.p,g.n)).join(' ')+(C.length?` <span class="tl">· 생긴 것</span> `+C.map(c=>chip(c.p,c.n)).join(' '):'');
+  const r=skillRate(S),why=[];
+  if(Math.abs(S.mul.skill-1)>=.01)why.push(`타고난 것·생긴 것 ×${S.mul.skill.toFixed(2)}`);
+  if(Math.abs(r.sf-1)>=.01)why.push(`공부 ${Math.round(S.study)}점 ×${r.sf.toFixed(2)}`);
+  if(r.hf<1)why.push('체력이 낮아 ×0.85'); if(r.mf<1)why.push('멘탈이 낮아 ×0.85');
   $('traitList').innerHTML=S.gifts.map(g=>`<li><span class="${g.p>0?'up':'dn'}">${g.p>0?'＋':'－'} ${esc(g.n)}${g.inh?' <span class="inh">물려받음</span>':''}</span><small>${esc(g.d)}</small></li>`).join('')
-    +`<li class="par"><span>${esc(S.parents.dad)} 아버지 · ${esc(S.parents.mom)} 어머니</span><small>${esc(S.parents.mood)} · ${esc(S.parents.body)} · 가정 형편 ${FAM[S.fam].n}</small></li>`
+    +(C.length?`<li class="sec">생긴 것</li>`+C.map(c=>`<li><span class="${c.p>0?'up':'dn'}">${c.p>0?'＋':'－'} ${esc(c.n)}${c.tr?` <span class="inh">${c.chronic?'관리 중':'치료 중'}</span>`:''}</span><small>${esc(c.d)}${c.p<0&&!c.keep?(c.chronic?' · 낫지 않는다. 관리하면 덜 깎인다':c.cure==='m'?' · 멘탈이 회복되면 낫는다':' · 체력이 회복되면 낫는다'):''}</small></li>`).join(''):'')
+    +`<li class="par"><span>실력이 느는 속도 ×${r.m.toFixed(2)}</span><small>${why.length?esc(why.join(' · ')):'보통'}</small></li>`
+    +`<li><span>${esc(S.parents.dad)} 아버지 · ${esc(S.parents.mom)} 어머니</span><small>${esc(S.parents.mood)} · ${esc(S.parents.body)} · 가정 형편 ${FAM[S.fam].n}</small></li>`
     +S.parents.notes.filter(n=>Object.keys(n.d).length).map(n=>`<li><span>${esc(n.t)}</span><small>${fx(n.d)}</small></li>`).join('');
-  $('traits').open=WIDE.matches;
+  if(init)$('traits').open=WIDE.matches;
 }
 function live(){
   const nm=($('nameIn')?$('nameIn').value:'').replace(/\s+/g,' ').trim().slice(0,8);
@@ -642,9 +653,10 @@ function live(){
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
-  show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');renderTraits();hud();step();
+  show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');renderTraits(true);hud();step();
 }
 function hud(){
+  if(S&&S.gifts)renderTraits();
   $('agTxt').textContent=`${S.age}세 · ${S.birthYear+S.age}년`;
   let j;
   if(S.over)j=ENDINGS[S.ending].t;
@@ -660,7 +672,7 @@ function hud(){
   const g=$('guide');
   if(studyVisible(S)&&S.edu==null&&S.age<19&&S.hs!=='meister'&&S.hs!=='voc'){
     const q=studyGuide(S);
-    g.innerHTML=(S.age<=15?`과학고는 공부 60점, 자사고는 45점부터 도전할 수 있다. 외고는 영어도 본다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'.';
+    g.innerHTML=(S.age<=15?`과학고는 공부 60점, 자사고는 45점부터 도전할 수 있다. 외고는 영어도 본다. `:'')+`지금 성적(${q.score}점)이면 <b>${q.tier}</b>`+(q.next?` · ${q.next}까지 ${q.gap}점`:'')+'. 공부가 낮으면 커서 실력도 덜 는다.';
     g.classList.remove('hidden');
   } else g.classList.add('hidden');
 }
@@ -686,7 +698,7 @@ function showChoice(b){
 }
 function render(b,fast){
   if(b.t==='year'){ add(mk('year',`<b>${b.age}세</b>${b.y}년`)); if(!fast){ hud(); save(); wait(450); } }
-  else if(b.t==='log'){ add(mk('entry '+(b.rare?'rareE ':'')+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+(b.rare?'<span class="tag rare">드문 일</span>':'')+(b.era?`<span class="tag" title="${b.era==='future'?'2027년 이후의 뉴스는 게임 속 이야기입니다':''}">그해 뉴스</span>`:'')+esc(b.text)+chips(b.d)+(b.src?`<small class="src">실제 통계 · ${esc(b.src)}</small>`:''))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
+  else if(b.t==='log'){ add(mk('entry '+(b.rare?'rareE ':'')+(b.tone==='good'?'good':b.tone==='bad'?'bad':''),(b.tag?'<span class="tag">작년 계획</span>':'')+(b.rare?'<span class="tag rare">드문 일</span>':'')+(b.ctag?`<span class="tag ${b.cpos?'cg':'cn'}">${esc(b.ctag)}</span>`:'')+(b.era?`<span class="tag" title="${b.era==='future'?'2027년 이후의 뉴스는 게임 속 이야기입니다':''}">그해 뉴스</span>`:'')+esc(b.text)+chips(b.d)+(b.src?`<small class="src">실제 통계 · ${esc(b.src)}</small>`:''))); if(!fast){ hud(); wait(1300+b.text.length*14); } }
   else if(b.t==='choice')showChoice(b);
   else if(b.t==='planpoint'){
     if(fast)return;
@@ -777,7 +789,7 @@ function resume(d){
   $('log').innerHTML='';ended=false;waiting=false;paused=false;arg=undefined;
   $('btnPause').textContent='일시정지';$('btnPause').setAttribute('aria-pressed','false');
   $('nmTxt').textContent=S.name;
-  show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');renderTraits();
+  show(['hud','stage']);$('ctl').classList.remove('hidden');$('planBar').classList.add('hidden');renderTraits(true);
   let ai=0,pi=0,last=null;
   while(beatNo<d.n){
     while(pi<d.plans.length&&d.plans[pi][0]<=beatNo){ Object.assign(S.plan,d.plans[pi][1]);rec.plans.push(d.plans[pi]);pi++; }
@@ -881,7 +893,7 @@ function finish(e){
     ${B.length?`<h3>발자취</h3><div class="badges">${B.map(x=>`<span class="${nw.b.includes(x)?'new':''}">${esc(x)}</span>`).join('')}</div>`:''}
     ${nwN?`<p class="newDex">도감에 새로 담았습니다. <b>${[nw.e.length?'결말 '+nw.e.length:'',nw.b.length?'칭호 '+nw.b.length:'',nw.g.length?'타고난 것 '+nw.g.length:'',nw.r.length?'드문 일 '+nw.r.length:''].filter(Boolean).join(' · ')}</b> · 모두 ${dexCount(loadDex())} / ${DEX_TOTAL()}</p>`:''}
     <h3>이력</h3>
-    <ul class="cv"><li><time>학력</time><span>${esc(school)}</span></li><li><time>타고남</time><span>${S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${esc(g.n)}</span>`).join(' · ')}</span></li><li><time>부모</time><span>${esc(S.parents.dad)} · ${esc(S.parents.mom)}<small>${esc(S.parents.mood)} · 가정 형편 ${FAM[S.fam].n}</small></span></li><li><time>가족</time><span>${esc(fam)}</span></li>${cv||'<li><time>경력</time><span>없음</span></li>'}</ul>
+    <ul class="cv"><li><time>학력</time><span>${esc(school)}</span></li><li><time>타고남</time><span>${S.gifts.map(g=>`<span class="${g.p>0?'up':'dn'}">${esc(g.n)}</span>`).join(' · ')}</span></li>${(S.condLog||[]).length?`<li><time>생긴 것</time><span>${[...new Set(S.condLog.map(x=>x.id))].map(id=>{ const c=COND[id],L=S.condLog.filter(x=>x.id===id),cur=L.some(x=>x.to==null); return `<span class="${c.p>0?'up':'dn'}">${esc(c.n)}</span><small class="cs">${L[0].at}세${c.p<0&&!cur?' · 나음':''}${c.p>0&&!cur&&!c.keep?' · 사라짐':''}</small>`; }).join(' · ')}</span></li>`:''}<li><time>부모</time><span>${esc(S.parents.dad)} · ${esc(S.parents.mom)}<small>${esc(S.parents.mood)} · 가정 형편 ${FAM[S.fam].n}</small></span></li><li><time>가족</time><span>${esc(fam)}</span></li>${cv||'<li><time>경력</time><span>없음</span></li>'}</ul>
     <h3>다음 생에 물려줄 것</h3>
     <div class="heir"><p class="fine">하나를 고르면 다음에 새로 태어날 때 그대로 받고 시작합니다. 받은 출생 링크나 오늘의 인생에는 적용되지 않습니다.</p><div class="opts" id="heirOpts" role="radiogroup" aria-label="다음 생에 물려줄 것"></div></div>
     <h3>같은 해에 태어난 네 사람</h3>

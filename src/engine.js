@@ -93,7 +93,7 @@ function newLife(seed,o){
   s.edu=null;s.major=null;s.major1=null;s.track2=null;s.over=false;s.ending=null;
   bornWith(s);
   s.plan={act:null,inv:'dep',work:'normal',spend:'normal'};s.wm={promo:1,raise:0,hire:0,layoff:0};s.sm=1;s.port={etf:0,stock:0,coin:0,div:0};s.proj=0;s.passive=0;
-  s.recent=null;s.everSeen={};s.chains=[];
+  s.recent=null;s.everSeen={};s.chains=[];s.cond={};s.condLog=[];
   s.tr={rare:[],acts:{},inv:{},grind:0,balance:0,frugal:0,crunch:0,layoffs:0,hunt:0,sick:0,visaTry:0,visaWin:0,ipo:0,inherit:0};s.moments=[];
   return s;
 }
@@ -104,7 +104,7 @@ function apply(s,d){
     if(k==='money'){ s.money+=v; out.money=v; }
     else if(k==='study'){ const b=s.study; s.study=clamp(b+v); if(studyVisible(s))out.study=s.study-b; }
     else{
-      if(k==='skill'&&v>0)v*=(1-s.st.skill/135)*s.mul.skill;
+      if(k==='skill'&&v>0)v*=(1-s.st.skill/135)*skillRate(s).m;
       else if(v>0&&(k==='network'||k==='english'))v*=s.mul[k];
       else if(v<0&&k==='mental')v*=s.mul.mentalLoss;
       else if(v<0&&k==='health')v*=s.mul.healthLoss;
@@ -131,6 +131,7 @@ function hireP(s,tier){
   const c=CO[tier],st=s.st;
   let p=c.hp+(st.skill-c.sk)*.012+st.network*.0015+(s.flags.intern?.06:0)+(s.flags.ms?.07:0)+(s.flags.portfolio?.04:0)+mkt(s,s.birthYear+s.age)+Math.min(s.devYears,8)*.015+s.luck+(s.job?0:s.wm.hire)+(s.devYears>0?(s.st.rep-30)*.0015:0)+(s.st.charm-40)*.0008+(s.flags.cert&&(tier==='big'||tier==='mid')?.04:0);
   if(s.devYears===0&&slump(s)&&!c.us)p-=.06;
+  if(hasC(s,'panic'))p-=s.cond.panic.tr?.02:.05;
   const mj=s.major1||s.major,yy=s.birthYear+s.age;
   if(mj==='ee'&&tier==='big')p+=.06;
   if(mj==='robot'&&(tier==='big'||tier==='mid'))p+=.04;
@@ -259,6 +260,189 @@ function bornWith(s){
   if(s.heirName){ const g=pool.find(x=>x.n===s.heirName); if(g){ pool.splice(pool.indexOf(g),1); g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d,inh:1}); } }
   while(s.gifts.length<3){ const g=pool.splice(R.int(0,pool.length-1),1)[0]; if(s.gifts.some(x=>x.g===g.g))continue; g.f(s); s.gifts.push({g:g.g,n:g.n,p:g.p,d:g.d}); }
 }
+/* ================= 살면서 생기는 것 (체력·멘탈·공부 상태에 따라 생기고, 나으면 사라진다) ================= */
+/* 실력이 느는 속도: 타고난 것 × 공부(기초) × 지금 몸과 마음 */
+function skillRate(s){
+  const sf=.8+clamp(s.study)/250, hf=s.st.health<30?.85:1, mf=s.st.mental<30?.85:1;
+  return {m:s.mul.skill*sf*hf*mf,sf,hf,mf};
+}
+/* cure: m은 멘탈, h는 체력이 회복되면 낫는다. chronic은 낫지 않고 관리만 한다. keep은 상태 표시용 */
+const COND={
+  rhin:{n:'비염',p:-1,d:'환절기마다 코가 막혀 공부가 조금 덜 된다',yr:{study:-1},cure:'h',ok:'키가 크면서 비염이 거의 사라졌다.',rem:['환절기가 오자 휴지 한 통을 또 다 썼다.']},
+  slump:{n:'무기력',p:-1,d:'해마다 공부와 멘탈이 조금씩 깎인다',yr:{study:-1.5,mental:-1},cure:'m',ok:'어느 날 아침, 오랜만에 하고 싶은 일이 생겼다. 무기력이 걷혔다.',rem:['주말 내내 침대에서 휴대폰만 봤다. 일요일 밤이 허무했다.']},
+  insom:{n:'불면증',p:-1,d:'해마다 체력과 멘탈이 깎인다',yr:{health:-1.5,mental:-.8},cure:'m',ok:'오랜만에 알람 소리에 깼다. 불면증이 나아졌다.',rem:['새벽 네 시, 천장의 무늬를 세다가 해가 떴다.','잠들려고 누웠는데 낮에 고친 버그가 다시 떠올랐다.']},
+  burn:{n:'번아웃 증후군',p:-1,d:'실력이 덜 늘고 멘탈이 더 깎인다',mul:{skill:.75,mentalLoss:1.2},yr:{mental:-1},cure:'m',ok:'다시 코드를 짜는 게 즐거워졌다. 번아웃에서 빠져나왔다.',rem:['노트북을 열고 한참 동안 아무것도 치지 못했다.']},
+  panic:{n:'공황 증상',p:-1,d:'인맥이 덜 쌓이고 면접에 약해진다',mul:{network:.6},cure:'m',ok:'사람 많은 지하철을 아무렇지 않게 탔다. 공황 증상이 한동안 나타나지 않는다.',rem:['꽉 찬 엘리베이터 앞에서 다음 걸 기다렸다.']},
+  gast:{n:'위염',p:-1,d:'해마다 멘탈이 조금 깎인다',yr:{mental:-1},cure:'h',ok:'속 쓰림이 사라졌다. 위염이 나았다.',rem:['회식 다음 날, 속이 하루 종일 쓰렸다.']},
+  wrist:{n:'손목 터널 증후군',p:-1,d:'키보드를 오래 못 쳐서 실력이 덜 는다',mul:{skill:.88},cure:'h',ok:'손목 저림이 사라졌다. 다시 밤새 코드를 쳐도 괜찮다.',rem:['손목 보호대를 차고 코드 리뷰를 했다.']},
+  back:{n:'허리 디스크',p:-1,d:'해마다 체력이 깎인다',yr:{health:-1.2},cure:'h',ok:'허리를 펴고 오래 걸을 수 있게 됐다. 디스크가 나아졌다.',rem:['비 오는 날이면 허리가 먼저 안다.','회의가 길어지자 서서 들었다.']},
+  bp:{n:'고혈압',p:-1,d:'해마다 체력이 깎이고 노년의 위험이 커진다',yr:{health:-.8},chronic:1,old:1.3,rem:['아침마다 혈압계 숫자를 수첩에 적는다.']},
+  sugar:{n:'당뇨',p:-1,d:'해마다 체력이 깎이고 노년의 위험이 커진다',yr:{health:-1},chronic:1,old:1.35,rem:['회식 메뉴판에서 먹을 수 있는 걸 먼저 찾았다.']},
+  joint:{n:'관절염',p:-1,d:'해마다 체력과 멘탈이 조금 깎인다',yr:{health:-.6,mental:-.4},chronic:1,old:1.1,rem:['계단 앞에서 난간부터 찾았다.']},
+  thin:{n:'얕은 기초',p:-1,d:'공부해 둔 기초가 부족해 실력이 덜 는다',keep:1},
+  base:{n:'탄탄한 기초',p:1,d:'공부해 둔 기초 덕에 실력이 더 잘 는다',keep:1},
+  fit:{n:'운동 습관',p:1,d:'체력이 덜 깎인다',mul:{healthLoss:.8}},
+  calm:{n:'여유로운 마음',p:1,d:'멘탈이 덜 깎인다',mul:{mentalLoss:.85}},
+  tough:{n:'단단해진 마음',p:1,d:'한 번 무너졌다 일어선 뒤로 멘탈이 덜 깎인다',mul:{mentalLoss:.88},keep:1},
+  eng:{n:'영어 자료 독해',p:1,d:'영어 문서를 바로 읽어 실력이 조금 더 는다',mul:{skill:1.06},keep:1}
+};
+function hasC(s,id){ return !!(s.cond&&s.cond[id]); }
+function addC(s,id){ s.cond=s.cond||{}; if(s.cond[id])return false; const c=COND[id]; s.cond[id]={at:s.age,tr:0}; if(c.mul)for(const k in c.mul)s.mul[k]*=c.mul[k]; (s.condLog=s.condLog||[]).push({id,at:s.age,to:null}); return true; }
+function delC(s,id){ if(!hasC(s,id))return; const c=COND[id]; if(c.mul)for(const k in c.mul)s.mul[k]/=c.mul[k]; delete s.cond[id]; const L=(s.condLog||[]).filter(x=>x.id===id&&x.to==null).pop(); if(L)L.to=s.age; }
+function condList(s){ return Object.keys(s.cond||{}).map(id=>Object.assign({id,tr:s.cond[id].tr},COND[id])); }
+function tagC(b,kind,id){ b.ctag=kind+': '+COND[id].n; b.cpos=kind==='나음'||(kind==='생김'&&COND[id].p>0); return b; }
+/* 처음 생길 때의 장면과 선택. 선택지마다 작은 이득이 있다 */
+const ONSET={
+  rhin:function*(s){ yield tagC(beat(s,'환절기마다 코가 막혔다. 병원에서 비염이라고 했다. 가방에 늘 휴지를 넣고 다닌다.','n',{mental:-1}),'생김','rhin'); },
+  slump:function*(s){ const i=yield ch('요즘 아무것도 하기 싫다. 책상 앞에 앉아도 한참 멍하다.',[{l:'상담 선생님을 찾아간다',h:'이야기하면 조금 가벼워진다'},{l:'친구들과 실컷 논다',h:''},{l:'혼자 버틴다',h:''}]);
+    if(i===0){ s.cond.slump.tr=1; yield tagC(beat(s,'상담실 소파에 앉아 한 시간 동안 이야기했다. 나만 이런 게 아니라는 걸 알았다.','good',{mental:6}),'생김','slump'); }
+    else if(i===1)yield tagC(beat(s,'노래방에서 목이 쉬도록 불렀다. 그날 밤만큼은 머리가 맑았다.','n',{mental:4,network:2,study:-2}),'생김','slump');
+    else yield tagC(beat(s,'아무에게도 말하지 않았다. 문제집을 펴 놓고 같은 줄을 몇 번이고 읽었다.','n',{study:2,mental:-2}),'생김','slump'); },
+  insom:function*(s){ const i=yield ch('새벽 세 시가 넘어도 잠이 오지 않는다. 벌써 몇 주째다.',[{l:'병원에서 진료를 받는다',h:'돈이 든다 · 낫기 쉬워진다'},{l:'잠들기 전 휴대폰을 끈다',h:''},{l:'어차피 못 자니 코드를 짠다',h:''}]);
+    if(i===0){ s.cond.insom.tr=1; yield tagC(beat(s,'수면 클리닉에서 생활 습관부터 고치라는 말을 들었다. 약은 아주 조금만 받았다.','good',{money:-30,health:3,mental:3}),'생김','insom'); }
+    else if(i===1){ if(s.R.chance(.5))s.cond.insom.tr=1; yield tagC(beat(s,'휴대폰을 거실에 두고 잤다. 첫 주는 더 잠이 안 왔다. 그래도 조금씩 나아졌다.','n',{mental:2}),'생김','insom'); }
+    else yield tagC(beat(s,'새벽마다 개인 프로젝트 커밋이 쌓였다. 낮에는 커피로 버텼다.','n',{skill:3,health:-2}),'생김','insom'); },
+  burn:function*(s){ const i=yield ch('출근길 지하철에서 내릴 역을 두 번 지나쳤다. 하는 일이 아무 의미 없게 느껴진다.',[{l:'휴직하고 치료를 받는다',h:'평판과 돈을 잃지만 확실히 쉰다'},{l:'상담을 받으며 일한다',h:'돈이 든다'},{l:'버틴다',h:''}]);
+    if(i===0){ s.cond.burn.tr=1; yield tagC(beat(s,'석 달 휴직했다. 첫 한 달은 잠만 잤고, 둘째 달에 처음으로 산책이 즐거웠다.','good',{mental:10,health:3,rep:-6,money:-500}),'생김','burn'); }
+    else if(i===1){ s.cond.burn.tr=1; yield tagC(beat(s,'퇴근 뒤 일주일에 한 번 상담을 받았다. "잘하려고만 하지 말라"는 말이 오래 남았다.','n',{mental:6,money:-150}),'생김','burn'); }
+    else yield tagC(beat(s,'아무렇지 않은 척 일했다. 일정은 지켰지만, 퇴근길이 점점 길게 느껴졌다.','n',{rep:2,mental:-3}),'생김','burn'); },
+  panic:function*(s){ const i=yield ch('발표 직전, 숨이 막히고 심장이 미친 듯이 뛰었다. 응급실에서는 몸에 이상이 없다고 했다.',[{l:'정신건강의학과 진료를 받는다',h:'돈이 든다 · 낫기 쉬워진다'},{l:'운동과 호흡법을 시작한다',h:''},{l:'아무에게도 말하지 않는다',h:''}]);
+    if(i===0){ s.cond.panic.tr=1; yield tagC(beat(s,'진료실 문을 여는 데 한참 걸렸다. 막상 들어가니 의사는 흔한 일이라고 했다.','good',{mental:6,money:-50}),'생김','panic'); }
+    else if(i===1)yield tagC(beat(s,'아침마다 걷고, 숨을 넷까지 세며 쉬는 법을 익혔다.','n',{health:4,mental:3}),'생김','panic');
+    else yield tagC(beat(s,'다음 발표는 다른 사람에게 넘겼다. 아무도 눈치채지 못했다.','n',{mental:-2,skill:2}),'생김','panic'); },
+  gast:function*(s){ const i=yield ch('속이 쓰려 점심을 거르는 날이 늘었다. 내시경에서 위염이 보였다.',[{l:'약을 먹고 식단을 바꾼다',h:''},{l:'커피를 줄인다',h:''},{l:'야식은 포기 못 한다',h:''}]);
+    if(i===0){ s.cond.gast.tr=1; yield tagC(beat(s,'자극적인 음식을 끊었다. 회식 자리에서 혼자 맑은국을 먹었다.','n',{health:3,money:-10,network:-1}),'생김','gast'); }
+    else if(i===1)yield tagC(beat(s,'하루 네 잔이던 커피를 한 잔으로 줄였다. 오후 회의가 길게 느껴졌다.','n',{health:2}),'생김','gast');
+    else yield tagC(beat(s,'치킨은 약보다 확실하게 기분을 고쳐 줬다. 속은 별개였다.','n',{mental:3,health:-1}),'생김','gast'); },
+  wrist:function*(s){ const i=yield ch('키보드를 칠 때마다 손목이 저리다. 손목 터널 증후군이라고 한다.',[{l:'재활 치료를 받고 인체공학 키보드를 산다',h:'돈이 든다'},{l:'단축키를 익혀 타자를 줄인다',h:''},{l:'그냥 쓴다',h:''}]);
+    if(i===0){ s.cond.wrist.tr=1; yield tagC(beat(s,'반으로 쪼개진 키보드에 적응하는 데 2주가 걸렸다. 동료들이 신기해했다.','n',{health:3,money:-80,network:1}),'생김','wrist'); }
+    else if(i===1)yield tagC(beat(s,'에디터 단축키를 외웠다. 마우스를 거의 안 쓰게 됐다.','n',{skill:2,health:1}),'생김','wrist');
+    else yield tagC(beat(s,'손목 보호대를 차고 마감까지 달렸다. 마감은 지켰다.','n',{rep:2,health:-1}),'생김','wrist'); },
+  back:function*(s){ const i=yield ch('의자에서 일어나다 허리가 굳었다. 허리 디스크 진단을 받았다.',[{l:'도수 치료와 운동을 시작한다',h:'돈이 든다 · 낫기 쉬워진다'},{l:'스탠딩 책상을 산다',h:''},{l:'진통제로 버틴다',h:''}]);
+    if(i===0){ s.cond.back.tr=1; yield tagC(beat(s,'일주일에 두 번 병원에 다니고, 저녁마다 코어 운동을 했다.','good',{health:5,money:-150}),'생김','back'); }
+    else if(i===1){ if(s.R.chance(.5))s.cond.back.tr=1; yield tagC(beat(s,'서서 일하니 오후 졸음이 줄었다. 회의도 짧아졌다.','n',{health:2,money:-60,mental:1}),'생김','back'); }
+    else yield tagC(beat(s,'약 기운으로 출시까지 버텼다. 출시는 성공했다.','n',{rep:2,health:-2}),'생김','back'); },
+  bp:function*(s){ const i=yield ch('건강검진 결과지에 혈압 수치가 빨갛게 표시됐다. 고혈압이라고 한다.',[{l:'약을 먹고 싱겁게 먹는다',h:'평생 관리해야 한다'},{l:'아직 젊다고 생각한다',h:''}]);
+    if(i===0){ s.cond.bp.tr=1; yield tagC(beat(s,'아침마다 약 한 알을 먹는다. 라면 국물을 처음으로 남겼다.','n',{health:3,money:-20}),'생김','bp'); }
+    else yield tagC(beat(s,'결과지를 서랍에 넣었다. 그날 저녁은 마음 편히 먹었다.','n',{mental:3}),'생김','bp'); },
+  sugar:function*(s){ const i=yield ch('공복 혈당이 기준을 넘었다. 당뇨라고 한다.',[{l:'식단과 운동으로 관리한다',h:'평생 관리해야 한다'},{l:'먹는 낙은 포기 못 한다',h:''}]);
+    if(i===0){ s.cond.sugar.tr=1; yield tagC(beat(s,'흰쌀밥을 현미로 바꾸고 저녁마다 걸었다. 석 달 뒤 수치가 조금 내려갔다.','n',{health:4,mental:-1}),'생김','sugar'); }
+    else yield tagC(beat(s,'좋아하는 떡볶이 집에 그대로 다녔다. 사장님이 반가워했다.','n',{mental:3,health:-1}),'생김','sugar'); },
+  joint:function*(s){ const i=yield ch('무릎이 시큰거려 계단 내려가는 게 겁난다. 관절염이라고 한다.',[{l:'꾸준히 물리 치료를 다닌다',h:''},{l:'집 근처만 다닌다',h:''}]);
+    if(i===0){ s.cond.joint.tr=1; yield tagC(beat(s,'물리 치료실에서 동네 친구가 여럿 생겼다.','n',{health:3,network:2,money:-50}),'생김','joint'); }
+    else yield tagC(beat(s,'동네 한 바퀴가 하루 일과가 됐다. 단골 가게가 늘었다.','n',{mental:3}),'생김','joint'); }
+};
+const ONSET_RULE=[
+  ['rhin',s=>s.age>=7&&s.age<=15&&s.st.health<52,.2],
+  ['slump',s=>s.age>=13&&s.age<=24&&!s.job&&s.st.mental<38,.3],
+  ['insom',s=>s.age>=17&&s.st.mental<(s.plan.work==='grind'?55:42),.2],
+  ['burn',s=>!!s.job&&s.age<60&&s.st.mental<45&&s.lowM2>=2,.35],
+  ['panic',s=>s.age>=19&&s.age<60&&s.st.mental<30,.25],
+  ['gast',s=>s.age>=20&&s.age<70&&s.st.mental<55&&s.st.health<65,.08],
+  ['wrist',s=>s.devYears>=3&&s.age<60&&s.st.health<(s.plan.work==='grind'?75:60),.05],
+  ['back',s=>s.devYears>=4&&s.age>=26&&s.age<70&&s.st.health<55,.1],
+  ['bp',s=>s.age>=38&&s.st.health<45,.06],
+  ['sugar',s=>s.age>=45&&s.st.health<45&&(s.plan.spend==='enjoy'||s.st.health<35),.06],
+  ['joint',s=>s.age>=62&&s.st.health<45,.08]
+];
+function* condTick(s){
+  const R=s.R,st=s.st,a=s.age; s.cond=s.cond||{};
+  s.lowM=st.mental<35?(s.lowM||0)+1:0; s.lowM2=st.mental<45?(s.lowM2||0)+1:0; s.lowH=st.health<45?(s.lowH||0)+1:0;
+  s.hiH=st.health>=78?(s.hiH||0)+1:0; s.hiM=st.mental>=80?(s.hiM||0)+1:0;
+  s.fitS=['fit','t_sport','o_walk'].includes(s.plan.act)?(s.fitS||0)+1:0; s.calmS=['rest','family','hobby','t_fun','trip','o_garden'].includes(s.plan.act)?(s.calmS||0)+1:0;
+  /* 해마다 붙는 효과 (치료하거나 관리하면 절반) */
+  for(const id in s.cond){ const c=COND[id]; if(!c.yr)continue; const f=s.cond[id].tr?.5:1,d={}; for(const k in c.yr)d[k]=c.yr[k]*f; apply(s,d); }
+  /* 기초: 고등학교를 마칠 무렵의 공부 점수로 정해지고, 나중에 공부를 다시 하면 바뀐다 */
+  if(a>=18&&!s.flags.baseSet&&(s.inUniv||s.job||a>=19)){ s.flags.baseSet=1;
+    if(s.study<35){ addC(s,'thin'); yield tagC(beat(s,'수식이 나오는 수업마다 막혔다. 중고등학교 때 쌓지 못한 기초가 이제야 발목을 잡는다.','n',{}),'생김','thin'); return; }
+    if(s.study>=70){ addC(s,'base'); yield tagC(beat(s,'처음 보는 알고리즘도 원리가 금방 보였다. 학창 시절 쌓아 둔 기초 덕분이다.','good',{skill:2}),'생김','base'); return; } }
+  if(hasC(s,'thin')&&s.study>=45){ delC(s,'thin'); yield tagC(beat(s,'기초를 다시 다졌다. 예전에는 외계어 같던 수식이 이제 읽힌다.','good',{mental:3}),'나음','thin'); return; }
+  if(hasC(s,'base')&&s.study<55)delC(s,'base');
+  /* 낫기 */
+  for(const id of Object.keys(s.cond)){ const c=COND[id]; if(c.p>0||c.chronic||c.keep)continue;
+    const tr=s.cond[id].tr, ok=c.cure==='m'?st.mental>=(tr?45:58):st.health>=(tr?50:62);
+    if(a-s.cond[id].at>=1&&ok&&R.chance(tr?.55:.3)){
+      delC(s,id); yield tagC(beat(s,c.ok,'good',c.cure==='m'?{mental:4}:{health:3}),'나음',id);
+      if(c.cure==='m'&&a>=19&&!hasC(s,'tough')&&['burn','panic','insom','slump'].includes(id)){ addC(s,'tough'); yield tagC(beat(s,'무너졌다가 다시 일어나 본 사람은 다음 파도를 덜 무서워한다.','good',{mental:3}),'생김','tough'); }
+      return; } }
+  /* 좋은 습관이 끊기기 */
+  if(hasC(s,'fit')&&s.lowH>=2){ delC(s,'fit'); yield tagC(beat(s,'바쁜 몇 해를 보내며 운동 습관이 끊겼다. 운동화에 먼지가 쌓였다.','bad',{mental:-2}),'사라짐','fit'); return; }
+  if(hasC(s,'calm')&&st.mental<45){ delC(s,'calm'); yield tagC(beat(s,'요즘 작은 일에도 쉽게 흔들린다. 여유가 사라졌다.','bad',{mental:-2}),'사라짐','calm'); return; }
+  /* 새로 생기기: 한 해에 하나만 */
+  const cand=ONSET_RULE.filter(r=>!hasC(s,r[0])&&!(s.condLog||[]).some(x=>x.id===r[0]&&x.to!=null&&a-x.to<4)&&r[1](s));
+  for(const r of cand){ if(R.chance(r[2])){ addC(s,r[0]); yield* ONSET[r[0]](s); return; } }
+  if(a>=16&&!hasC(s,'fit')&&st.health>=60&&s.fitS>=3&&!(s.condLog||[]).some(x=>x.id==='fit'&&a-x.to<5)){ addC(s,'fit'); yield tagC(beat(s,'세 해 내리 운동하는 계획을 지켰다. 이제는 운동을 거르면 오히려 몸이 근질거린다.','good',{health:2}),'생김','fit'); return; }
+  if(a>=19&&!hasC(s,'calm')&&st.mental>=70&&s.calmS>=3&&!(s.condLog||[]).some(x=>x.id==='calm'&&a-x.to<5)){ addC(s,'calm'); yield tagC(beat(s,'세 해 내리 쉬고 노는 시간을 챙겼다. 웬만한 일에는 흔들리지 않게 됐다.','good',{mental:2}),'생김','calm'); return; }
+  if(a>=19&&a<65&&!hasC(s,'eng')&&st.english>=70){ addC(s,'eng'); yield tagC(beat(s,'영어 공식 문서가 번역본보다 편해졌다. 새 기술 소식을 남들보다 한발 먼저 읽는다.','good',{skill:2}),'생김','eng'); return; }
+  /* 가끔 지금 앓는 것을 떠올리게 한다 */
+  const neg=condList(s).filter(c=>c.rem);
+  if(neg.length&&R.chance(.14)){ const c=R.pick(neg); yield beat(s,pk(s,c.rem),'n',{mental:-1}); }
+}
+/* 지금 상태에 따라 생기는 일: 체력·멘탈·공부·영어·인맥·돈이 낮거나 높을 때 */
+const STATE=[
+  {id:'s_math',c:s=>s.age>=12&&s.age<=18&&!s.job&&s.study<38,*g(s){ yield* pickOut(s,'수학 시간이 외계어처럼 들린다. 공부가 부족하면 나중에 실력도 덜 는다는 말이 마음에 걸린다.',
+    [{l:'인터넷 강의로 기초부터 다시 한다',h:''},{l:'잘하는 친구에게 물어본다',h:''},{l:'코딩만 판다',h:''}],
+    [[[10,'중학교 1학년 강의부터 다시 들었다. 처음으로 방정식이 이해됐다.','good',{study:7,mental:-1}]],
+     [[7,'친구가 공책에 그림까지 그려 가며 설명해 줬다. 대신 매점 빵을 샀다.','good',{study:5,network:2}],[3,'설명을 들어도 잘 모르겠다. 그래도 친구와는 더 친해졌다.','n',{network:3,study:1}]],
+     [[10,'수학 대신 파이썬 책을 폈다. 반복문은 금방 익혔지만 재귀에서 막혔다.','n',{skill:4,study:-2}]]]); }},
+  {id:'s_grade',c:s=>s.age>=16&&s.age<=18&&!s.job&&s.study<32,*g(s){ yield* pickOut(s,'모의고사 성적표를 받은 날, 담임 선생님이 따로 불렀다.',
+    [{l:'방학 동안 기초부터 다시 한다',h:''},{l:'내 길은 코딩이라고 말한다',h:''}],
+    [[[10,'방학 내내 독서실에 다녔다. 개학 날, 처음으로 모의고사 등급이 올랐다.','good',{study:9,mental:-3}]],
+     [[6,'선생님이 한참 듣더니 정보 올림피아드 공고문을 건넸다.','good',{skill:3,mental:3}],[4,'"그래도 수학은 해야 한다"는 말을 들었다. 틀린 말은 아니었다.','n',{mental:-1,skill:2}]]]); }},
+  {id:'s_top',c:s=>s.age>=13&&s.age<=18&&!s.job&&s.study>=78,*g(s){ yield beat(s,pk(s,['교내 수학 경시대회 대표로 뽑혔다. 문제를 푸는 감각이 코딩과 닮아 있었다.','반 친구들이 시험 전날 내 필기를 돌려 봤다. 설명하다 보니 나도 더 확실히 알게 됐다.']),'good',{study:3,network:3,skill:1}); }},
+  {id:'s_algo',c:s=>s.inUniv&&s.study<38,*g(s){ yield* pickOut(s,'알고리즘 수업에서 수식이 나오자 머리가 하얘졌다.',
+    [{l:'이산수학을 다시 수강한다',h:'기초를 다시 쌓는다'},{l:'코드로만 이해해 본다',h:''}],
+    [[[10,'한 학기 늦게 이산수학을 다시 들었다. 증명은 여전히 어렵지만 읽을 수는 있게 됐다.','good',{study:8,skill:2,mental:-2}]],
+     [[10,'수식을 건너뛰고 예제 코드를 하나씩 돌려 봤다. 시험은 겨우 넘겼다.','n',{skill:3,study:-1}]]]); }},
+  {id:'s_stairs',c:s=>s.age>=19&&s.age<60&&s.st.health<40,*g(s){ yield* pickOut(s,'계단 세 층을 올랐을 뿐인데 숨이 찼다.',
+    [{l:'헬스장을 등록한다',h:'돈이 든다'},{l:'출퇴근길 한 정거장을 걷는다',h:''},{l:'엘리베이터를 탄다',h:''}],
+    [[[6,'석 달 동안 일주일에 세 번 갔다. 계단이 덜 무서워졌다.','good',{health:7,money:-60}],[4,'두 달 회비를 내고 세 번 갔다. 그래도 세 번은 갔다.','n',{health:2,money:-60}]],
+     [[10,'한 정거장 일찍 내려 걸었다. 팟캐스트 한 편이 끝날 때쯤 회사에 닿는다.','good',{health:4,mental:1}]],
+     [[10,'엘리베이터에서 옆 팀 사람과 인사를 텄다.','n',{network:2}]]]); }},
+  {id:'s_dizzy',c:s=>!!s.job&&s.st.health<35,*g(s){ yield* pickOut(s,'모니터를 보다가 눈앞이 핑 돌았다.',
+    [{l:'반차를 내고 병원에 간다',h:''},{l:'커피를 한 잔 더 마신다',h:''}],
+    [[[10,'수액을 맞고 누워 있었다. 의사가 잠부터 자라고 했다.','good',{health:6,rep:-1,money:-10}]],
+     [[7,'잠깐 엎드렸다 일어나 하던 일을 마쳤다. 일정은 지켰다.','n',{rep:2,health:-2}],[3,'커피를 들고 일어서다 쏟았다. 결국 조퇴했다.','n',{health:2,rep:-1}]]]); }},
+  {id:'s_tired',c:s=>s.age>=38&&s.age<60&&s.st.health<48,*g(s){ yield* pickOut(s,'건강검진 문진표의 "최근 피로감" 칸에 체크하다 펜이 멈췄다.',
+    [{l:'술자리를 줄인다',h:''},{l:'주말 등산을 시작한다',h:''},{l:'모임은 계속 나간다',h:''}],
+    [[[10,'회식은 1차까지만 갔다. 아침이 달라졌다.','good',{health:5,network:-2}]],
+     [[10,'동네 뒷산부터 올랐다. 정상에서 먹는 컵라면이 이렇게 맛있을 줄 몰랐다.','good',{health:5,mental:2}]],
+     [[10,'모임에서 들은 이직 소식이 쏠쏠했다. 다음 날은 힘들었다.','n',{network:3,health:-2}]]]); }},
+  {id:'s_monday',c:s=>!!s.job&&s.st.mental<35,*g(s){ yield* pickOut(s,'월요일 아침, 알람을 끄고 한참 동안 천장을 봤다.',
+    [{l:'연차를 쓴다',h:''},{l:'그래도 출근한다',h:''},{l:'심리 상담을 예약한다',h:'돈이 든다'}],
+    [[[10,'하루 종일 아무것도 하지 않았다. 저녁 무렵 조금 살 것 같았다.','good',{mental:5,rep:-1}]],
+     [[10,'지각은 하지 않았다. 팀장이 요즘 성실하다고 했다.','n',{rep:2,mental:-2}]],
+     [[10,'처음 만난 상담사에게 생각보다 많은 이야기를 했다. 돌아오는 길이 가벼웠다.','good',{mental:6,money:-20}]]]); }},
+  {id:'s_numb',c:s=>s.age>=19&&s.st.mental<30,*g(s){ yield* pickOut(s,'좋아하던 게임도, 음악도 요즘은 재미가 없다.',
+    [{l:'오랜 친구에게 연락한다',h:''},{l:'혼자 산책을 나간다',h:''}],
+    [[[7,'친구가 아무것도 묻지 않고 밥을 사 줬다.','good',{mental:5,network:2}],[3,'친구도 요즘 힘들다고 했다. 서로 들어 주다 새벽이 됐다.','n',{mental:3,network:3}]],
+     [[10,'한 시간을 걸었다. 강가 벤치에서 해 지는 걸 끝까지 봤다.','n',{mental:4,health:2}]]]); }},
+  {id:'s_exam',c:s=>s.age>=14&&s.age<=18&&!s.job&&s.st.mental<38,*g(s){ yield* pickOut(s,'시험 기간, 책상 앞에 앉기만 하면 숨이 막힌다.',
+    [{l:'상담 선생님을 찾아간다',h:''},{l:'이를 악물고 버틴다',h:''}],
+    [[[10,'선생님이 "시험이 인생의 전부는 아니다"라며 웃었다. 그 말에 이상하게 힘이 났다.','good',{mental:7}]],
+     [[10,'시험은 끝났다. 성적은 조금 올랐고, 마음은 조금 닳았다.','n',{study:3,mental:-3}]]]); }},
+  {id:'s_flow',c:s=>!!s.job&&s.age<60&&s.st.mental>=85&&s.st.health>=60,*g(s){ yield beat(s,pk(s,['요즘 이상하게 일이 잘 풀린다. 아침이 가볍다.','몰입해서 코드를 짜다 보니 점심시간이 지나 있었다. 오랜만의 기분이었다.']),'good',{skill:2,rep:2}); }},
+  {id:'s_run',c:s=>s.age>=22&&s.age<60&&s.st.health>=85,*g(s){ yield beat(s,pk(s,['사내 마라톤 대회에서 10킬로미터를 완주했다. 대표와 같은 조였다.','야근 다음 날에도 몸이 가볍다. 동료들이 비결을 물었다.']),'good',{network:3,mental:2}); }},
+  {id:'s_engHi',c:s=>!!s.job&&s.age<60&&s.st.english>=70,*g(s){ yield beat(s,pk(s,['해외 오픈소스 이슈에 영어로 답을 달았다. 메인테이너가 고맙다고 했다.','외국 고객사와의 회의에서 통역 없이 이야기했다. 회의가 절반으로 줄었다.']),'good',{skill:2,network:3}); }},
+  {id:'s_engLo',c:s=>!!s.job&&s.devYears>=2&&s.age<55&&s.st.english<22,*g(s){ yield* pickOut(s,'에러 메시지를 번역기에 돌리다, 번역이 원문과 정반대라는 걸 알았다.',
+    [{l:'영어 공부를 시작한다',h:''},{l:'번역기를 믿는다',h:''}],
+    [[[10,'출근길마다 영어 공식 문서를 한 쪽씩 읽었다. 단어장에 기술 용어만 늘었다.','good',{english:5,mental:-1}]],
+     [[10,'번역기를 바꿨다. 이번 번역기는 조금 더 똑똑했다.','n',{mental:2}]]]); }},
+  {id:'s_alone',c:s=>!s.job&&s.age>=22&&s.age<60&&s.st.network<22,*g(s){ yield* pickOut(s,'이력서 추천인 칸 앞에서, 떠오르는 이름이 하나도 없었다.',
+    [{l:'개발자 모임에 나가 본다',h:''},{l:'혼자 지원한다',h:''}],
+    [[[10,'어색하게 앉아 있다가 같은 라이브러리를 쓰는 사람과 한참 이야기했다.','good',{network:7,mental:-1}]],
+     [[10,'추천인 칸을 비워 두고 포트폴리오를 한 번 더 다듬었다.','n',{skill:2}]]]); }},
+  {id:'s_broke',c:s=>s.age>=20&&s.money<0,*g(s){ yield* pickOut(s,'통장 잔고 앞에 마이너스가 붙었다.',
+    [{l:'주말에 부업을 한다',h:''},{l:'씀씀이를 줄인다',h:''}],
+    [[[10,'주말마다 외주 화면 몇 개를 만들었다. 통장이 다시 0을 넘었다.','n',{money:300,health:-3}]],
+     [[10,'구독 서비스 다섯 개를 정리했다. 생각보다 많았다.','n',{money:120,mental:-1}]]]); }},
+  {id:'s_clinic',c:s=>s.age>=65&&s.st.health<45,*g(s){ yield beat(s,pk(s,['병원 대기실이 동네 사랑방이 됐다. 번호표를 뽑고 안부부터 묻는다.','약 봉투가 늘었다. 요일별 약통을 앱처럼 정리해 두었다.']),'n',{network:2,mental:1}); }}
+];
+function* stateTick(s){
+  if(!s.R.chance(.4))return;
+  const c=STATE.filter(e=>(!s.cd[e.id]||s.age-s.cd[e.id]>=6)&&e.c(s)); if(!c.length)return;
+  const e=s.R.pick(c); s.cd[e.id]=s.age; yield* e.g(s);
+}
 /* 등록 연도 y의 추첨은 회계연도 y+1 몫이다 */
 function h1bBase(s){
   const y=s.birthYear+s.age;
@@ -338,6 +522,8 @@ function why(s,e){
     if(t.grind>=2)R.push(`"성과에 모든 걸 건다"로 ${t.grind}년을 보냈다. 그 해마다 ${what}이 깎였다.`);
     if(t.crunch>=3)R.push(`야근이 잦은 회사(SI·스타트업·창업 등)에서 ${t.crunch}년을 일했다.`);
     const care=e==='health'?heal:calm;
+    const ill=condList(s).filter(c=>c.p<0&&!c.keep&&(e==='health'?c.cure!=='m':c.cure==='m'));
+    if(ill.length)R.push(`${J(ill.map(c=>c.n).join(', '),'를')} ${ill.some(c=>!c.tr)?'제대로 치료하지 않은 채':'안고'} 지냈다. 해마다 ${what}이 더 깎였다.`);
     if(care===0)R.push(`스무 살 이후 ${e==='health'?'운동이나 건강을 챙기는':'쉬거나 마음을 돌보는'} 계획을 한 번도 고르지 않았다.`);
     else if(care*4<adultYrs)R.push(`${e==='health'?'몸':'마음'}을 챙긴 해는 ${care}년뿐이었다.`);
     if(e==='health'){ if(G('약한 몸'))R.push('타고난 "약한 몸" 때문에 체력이 더 빨리 깎였다.'); if(s.parents.body==='잔병치레가 잦은 집안')R.push('잔병치레가 잦은 집안 체질을 물려받았다.'); if(s.age>40)R.push('마흔이 넘으면 해마다 체력이 조금씩 더 줄어든다(게임 규칙).'); if(t.sick)R.push(`병가로 ${t.sick}번 버텼지만 회복이 따라가지 못했다.`); }
@@ -486,6 +672,7 @@ function* to(s,target){
     else if(s.inUniv)yield* draw(s,'u',UNIV);
     if(s.age>=19)yield* loveTick(s);
     if(s.age>=22&&s.age<60&&!s.over&&s.R.chance(.45))yield* draw(s,s.age<35?'y':s.age<50?'m':'z',s.age<35?LIFE_Y:s.age<50?LIFE_M:LIFE_Z);
+    if(s.age>=7){ yield* condTick(s); yield* stateTick(s); }
     if(!s.over||s.age>=60){ yield* chainTick(s); if(s.age>=7&&s.R.chance(.016))yield* rareTick(s); }
     if(s.age>=s.parentEnd&&!s.flags.parentGone){ s.flags.parentGone=1; const m=INHERIT[s.fam];
       yield beat(s,pk(s,['부모님을 떠나보냈다. 장례를 치르고, 오래된 사진첩을 한 장씩 넘겨 봤다.','부모님을 떠나보냈다. 유품 정리 중에 내 첫 월급 명세서를 찾았다. 부모님이 접어 두셨다.','부모님을 떠나보냈다. 휴대폰에 남은 음성 메시지를 지우지 못했다.','부모님을 떠나보냈다. 장례식장에서 어릴 적 친구들을 오랜만에 만났다.']),'bad',{mental:-8});
@@ -548,7 +735,8 @@ function* later(s){
     if(R.chance(.4)){ const u=s.oldUsed||(s.oldUsed={}); const c=OLD.map((f,i)=>i).filter(i=>!u[i]); if(c.length){ const i=R.pick(c); u[i]=1; const r=OLD[i](s); if(!r[3]||r[3](s))yield beat(s,r[0],r[1],r[2]); } }
     if(R.chance(.6))yield* draw(s,'o',OLD2);
     apply(s,{mental:-5.5,network:-3.5});
-    const p=.006*Math.exp(.09*(s.age-60))*(s.st.health<25?2.2:s.st.health>60?.7:1);
+    let p=.006*Math.exp(.09*(s.age-60))*(s.st.health<25?2.2:s.st.health>60?.7:1);
+    for(const c of condList(s))if(c.old)p*=c.tr?1+(c.old-1)/3:c.old;
     if(s.age>=100||R.chance(p)){
       s.deathAge=s.age;
       yield beat(s,`${s.age}세의 ${R.pick(['봄','여름','가을','겨울'])}, ${s.flags.married||s.flags.kid?'가족들이 지켜보는 가운데':'오랜 친구들의 배웅 속에'} 눈을 감았다.`);
@@ -811,7 +999,7 @@ const LOVE=[
      if(i===0){ if(s.R.chance(.35+p.love/200)){ p.us=1;lv(s,10); yield beat(s,`${J(p.name,'가')} 며칠을 고민하더니 함께 가겠다고 했다. 공항에서 짐이 두 배가 됐다.`,'good',{mental:8}); }
                 else yield* breakup(s,`${J(p.name,'는')} 자기 삶이 여기에 있다고 했다. 공항에서 마지막으로 인사했다.`); }
      else if(i===1){ p.us=1;lv(s,-14); yield beat(s,'열일곱 시간의 시차 속에서 서로의 아침과 밤에 통화했다. 혼자 지내는 저녁에는 영어 회화 모임에 나갔다.','n',{mental:-3,english:4}); }
-     else yield* breakup(s,null,['미국 생활에만 마음을 쏟기로 했다.',{english:4}]); },c:s=>!!(s.job&&s.job.us)&&!s.partner.us&&!s.partner.married},
+     else yield* breakup(s,null,['미국 생활에만 마음을 쏟기로 했다. 비행기표 값은 굳었다.',{english:4,money:100}]); },c:s=>!!(s.job&&s.job.us)&&!s.partner.us&&!s.partner.married},
   {g:function*(s){ const p=s.partner;const i=yield ch(`미국에서 일하게 됐다. ${J(p.name,'와')} 어떻게 지낼지 정해야 한다.`,[{l:'가족이 함께 미국으로 간다',h:'낯선 곳에서 같이 다시 시작한다'},{l:'당분간 혼자 가서 일한다',h:'떨어져 지내는 만큼 애정이 식는다'}]);
      p.us=1;
      if(i===0){ lv(s,6); yield beat(s,s.flags.kid?`온 가족이 이민 가방을 쌌다. 아이는 새 학교 첫날 한마디도 못 하고 돌아왔지만, 석 달 뒤에는 통역을 해 줬다.`:`${J(p.name,'는')} 하던 일을 정리하고 함께 비행기에 올랐다. 낯선 동네에서 둘이 장 보는 법부터 다시 배웠다.`,'good',{mental:6,money:-1500}); }
@@ -861,7 +1049,7 @@ const EV3=[
     }
     const i=yield ch(`${J(p.name,'와')} 만난 지 ${p.yrs}년. 앞으로를 생각할 때가 됐다.`,[{l:'청혼한다',h:''},{l:'조금 더 만나 본다',h:''},{l:'헤어지자고 한다',h:''}]);
     if(i===1){ p.wait++;lv(s,-2); yield beat(s,'아직은 지금이 좋다고 생각했다. 서두르지 않으니 마음이 편했다.','n',{mental:3}); return; }
-    if(i===2){ yield* breakup(s,null,['주말이 통째로 내 시간이 됐다. 뜸했던 친구들을 다시 자주 만났다.',{skill:2,network:3}]); return; }
+    if(i===2){ yield* breakup(s,null,['주말이 통째로 내 시간이 됐다. 데이트 비용이 줄어 통장도 조금 여유가 생겼다.',{skill:2,network:3,money:60}]); return; }
     const j=yield ch('어떻게 청혼할까?',[{l:'직접 만든 프로그램으로 깜짝 청혼한다',h:'실력이 받쳐 줘야 한다'},{l:'조용한 식당에서 담백하게 말한다',h:''},{l:'여행지에서 반지를 꺼낸다',h:'돈이 든다'}]);
     let bonus=0,txt='';
     if(j===0){ if(s.st.skill>=45){ bonus=.1;txt=`화면에 "나와 결혼해 줄래?"가 떴다. ${J(p.name,'는')} "예" 버튼을 눌렀다.`; } else{ bonus=-.1;txt='결정적인 순간에 화면이 멈췄다. 결국 말로 했다.'; } }
@@ -2099,4 +2287,4 @@ function autoRun(seed,pick){
   }
   return s;
 }
-if(typeof module!=='undefined')module.exports={MAJOR,HS_NAME,majorName,GOALS,pickGoals,RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
+if(typeof module!=='undefined')module.exports={COND,condList,skillRate,hasC,MAJOR,HS_NAME,majorName,GOALS,pickGoals,RARE,seenKeys,SRC,payStr,usd,h1bBase,newLife,life,autoRun,ENDINGS,CO,won,title,FAM,EDU,planOptions,wealth,ACT,studyGuide,studyVisible,repVisible,why,keyMoments,badgesOf,BADGES,ENDING_HINT,GIFT,GIFT_GROUP,deathNote};
